@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './Study.css';
 
 function Study({ cards, mediaFiles, reading, listening, picture, onBackToMenu }) {
@@ -6,6 +6,9 @@ function Study({ cards, mediaFiles, reading, listening, picture, onBackToMenu })
   const [showBack, setShowBack] = useState(false);
   const [showPronunciation, setShowPronunciation] = useState(false);
   const [shuffledCards, setShuffledCards] = useState([]);
+  const wordAudioRef = useRef(null);
+  const sentenceAudioRef = useRef(null);
+  const listeningAudioRef = useRef(null);
 
   useEffect(() => {
     if (cards.length === 0) return;
@@ -23,6 +26,12 @@ function Study({ cards, mediaFiles, reading, listening, picture, onBackToMenu })
 
     setShuffledCards(combinedCards);
   }, [cards, reading, listening, picture]);
+
+  useEffect(() => {
+    if (shuffledCards.length > 0 && shuffledCards[currentCardIndex].type === 'listening' && listeningAudioRef.current) {
+      listeningAudioRef.current.play();
+    }
+  }, [currentCardIndex, shuffledCards]);
 
   const handleNextCard = () => {
     setShowBack(false);
@@ -65,17 +74,37 @@ function Study({ cards, mediaFiles, reading, listening, picture, onBackToMenu })
       <div className="card">
         {showBack ? (
           <div>
-            <p className="meaning-text"><strong>Meaning:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[1] }} /></p>
-            <p><strong>Pronunciation:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[2] }} /></p>
-            {currentCard[3] && <p><strong>Word Audio:</strong> <audio controls src={mediaFiles[currentCard[3].replace('[sound:', '').replace(']', '')]}></audio></p>}
-            <p><strong>Sentence:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[4] }} /></p>
-            <p><strong>Hiragana Sentence:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[5] }} /></p>
-            <p><strong>Sentence Translation:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[6] }} /></p>
-            {currentCard[7] && <p><strong>Sentence Audio:</strong> <audio controls src={mediaFiles[currentCard[7].replace('[sound:', '').replace(']', '')]}></audio></p>}
-            {currentCard[8] && <p><strong>Image:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[8].replace(/<img\s+src="([^"]+)"(.*?)>/g, (match, filename, rest) => {
-              const blobUrl = mediaFiles[filename] || filename;
-              return `<img src="${blobUrl}"${rest}>`;
-            }) }} /></p>}
+            <p className="meaning-text">
+              <strong>Meaning:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[1] }} />
+            </p>
+            <p>
+              <strong>Pronunciation:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[2] }} />
+              {currentCard[3] && (
+                <span className="audio-icon" onClick={() => wordAudioRef.current.play()}>🔊</span>
+              )}
+              <audio ref={wordAudioRef} src={mediaFiles[currentCard[3]?.replace('[sound:', '').replace(']', '')]}></audio>
+            </p>
+            <p>
+              <strong>Sentence:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[4] }} />
+              {currentCard[7] && (
+                <span className="audio-icon" onClick={() => sentenceAudioRef.current.play()}>🔊</span>
+              )}
+              <audio ref={sentenceAudioRef} src={mediaFiles[currentCard[7]?.replace('[sound:', '').replace(']', '')]}></audio>
+            </p>
+            <p>
+              <strong>Hiragana Sentence:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[5] }} />
+            </p>
+            <p>
+              <strong>Sentence Translation:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[6] }} />
+            </p>
+            {currentCard[8] && (
+              <p>
+                <span dangerouslySetInnerHTML={{ __html: currentCard[8].replace(/<img\s+src="([^"]+)"(.*?)>/g, (match, filename, rest) => {
+                  const blobUrl = mediaFiles[filename] || filename;
+                  return `<img src="${blobUrl}"${rest}>`;
+                }) }} />
+              </p>
+            )}
           </div>
         ) : (
           <div>
@@ -94,10 +123,7 @@ function Study({ cards, mediaFiles, reading, listening, picture, onBackToMenu })
             )}
             {currentCard.type === 'listening' && (
               <>
-                <div className="audio-icon" onClick={() => document.getElementById(`audio-${currentCardIndex}`).play()}>
-                  🔊
-                </div>
-                {currentCard[3] && <audio id={`audio-${currentCardIndex}`} src={mediaFiles[currentCard[3].replace('[sound:', '').replace(']', '')]}></audio>}
+                <audio ref={listeningAudioRef} controls src={mediaFiles[currentCard[3].replace('[sound:', '').replace(']', '')]}></audio>
               </>
             )}
             {currentCard.type === 'picture' && (
