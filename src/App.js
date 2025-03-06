@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import initSqlJs from 'sql.js';
 import JSZip from 'jszip';
+import Menu from './components/Menu';
 import Study from './components/Study';
 import './App.css';
-
-const NUM_CARDS_TO_STUDY = 1300; // Define the number of cards to study
 
 function App() {
   const [cards, setCards] = useState([]);
@@ -12,6 +11,10 @@ function App() {
   const [error, setError] = useState(null);
   const [studyMode, setStudyMode] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [numCardsToStudy, setNumCardsToStudy] = useState(1300);
+  const [reading, setReading] = useState(1300);
+  const [listening, setListening] = useState(0);
+  const [picture, setPicture] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -24,7 +27,7 @@ function App() {
 
         // See what's in the ZIP (for debugging)
         const zipEntries = zip.file(/.*/g).map(fileObj => fileObj.name);
-        console.log("Files in the ZIP:", zipEntries);
+        //console.log("Files in the ZIP:", zipEntries);
 
         // ---------------------------------------------------------------------
         // 1) Parse the "media" JSON file at the root, which maps numeric IDs to filenames
@@ -88,11 +91,10 @@ function App() {
 
           // Split fields by the '\x1f' separator
           const cardsData = res[0].values.map(row => row[0].split('\x1f'));
-          console.log("Extracted cards data:", cardsData);
+          //console.log("Extracted cards data:", cardsData);
 
           setCards(cardsData);
           setError(null);
-          setStudyMode(true); // Switch to study mode
         }
       } catch (err) {
         console.error("Error loading the database:", err);
@@ -115,22 +117,38 @@ function App() {
     };
   }, []);
 
+  const handleStartStudy = (numCards, reading, listening, picture) => {
+    setNumCardsToStudy(numCards);
+    setReading(reading);
+    setListening(listening);
+    setPicture(picture);
+    setStudyMode(true);
+  };
+
+  const handleBackToMenu = () => {
+    setStudyMode(false);
+  };
+
   return (
     <div className="App">
       {loading ? (
         <div className="loading">
-          <p>Loading...</p>
+          <p>Loading Cards...</p>
           <div className="loading-bar">
             <div className="loading-progress"></div>
           </div>
         </div>
       ) : studyMode ? (
-        <Study cards={cards.slice(0, NUM_CARDS_TO_STUDY)} mediaFiles={mediaFiles} />
+        <Study
+          cards={cards.slice(0, numCardsToStudy)}
+          mediaFiles={mediaFiles}
+          reading={reading}
+          listening={listening}
+          picture={picture}
+          onBackToMenu={handleBackToMenu}
+        />
       ) : (
-        <header className="App-header">
-          <h1>Anki Deck Viewer</h1>
-          {error && <p className="error">{error}</p>}
-        </header>
+        <Menu onStartStudy={handleStartStudy} />
       )}
     </div>
   );

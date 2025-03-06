@@ -31,3 +31,51 @@
   0% { width: 0; }
   100% { width: 100%; }
 }
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  font-family: Arial, sans-serif;
+}
+
+.menu h1 {
+  font-size: 2em;
+  margin-bottom: 20px;
+}
+
+.menu label {
+  font-size: 1.2em;
+  margin-bottom: 10px;
+}
+
+.menu input {
+  font-size: 1em;
+  padding: 5px;
+  margin-left: 10px;
+}
+
+.menu button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  margin-top: 20px;
+}
+
+.menu button:hover {
+  background-color: #0056b3;
+}
+
+.menu button:focus {
+  outline: none;
+}
+
+.menu button:active {
+  background-color: #004085;
+}

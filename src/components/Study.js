@@ -1,11 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Study.css';
 
-function Study({ cards, mediaFiles }) {
+function Study({ cards, mediaFiles, reading, listening, picture, onBackToMenu }) {
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [showBack, setShowBack] = useState(false);
   const [showPronunciation, setShowPronunciation] = useState(false);
-  const [shuffledCards, setShuffledCards] = useState(cards);
+  const [shuffledCards, setShuffledCards] = useState([]);
+
+  useEffect(() => {
+    if (cards.length === 0) return;
+
+    const shuffled = [...cards];
+    const readingCards = shuffled.slice(0, reading);
+    const listeningCards = shuffled.slice(0, listening).sort(() => Math.random() - 0.5);
+    const pictureCards = shuffled.slice(0, picture).sort(() => Math.random() - 0.5);
+
+    const combinedCards = [
+      ...readingCards.map(card => ({ ...card, type: 'reading' })),
+      ...listeningCards.map(card => ({ ...card, type: 'listening' })),
+      ...pictureCards.map(card => ({ ...card, type: 'picture' })),
+    ].sort(() => Math.random() - 0.5);
+
+    setShuffledCards(combinedCards);
+  }, [cards, reading, listening, picture]);
 
   const handleNextCard = () => {
     setShowBack(false);
@@ -35,11 +52,16 @@ function Study({ cards, mediaFiles }) {
     setShowPronunciation((prevShowPronunciation) => !prevShowPronunciation);
   };
 
+  if (shuffledCards.length === 0) {
+    return <div>Loading cards...</div>;
+  }
+
   const currentCard = shuffledCards[currentCardIndex];
 
   return (
     <div className="study">
       <button className="shuffle-button" onClick={handleShuffleCards}>Shuffle Cards</button>
+      <button className="back-button" onClick={onBackToMenu}>Back to Menu</button>
       <div className="card">
         {showBack ? (
           <div>
@@ -57,15 +79,35 @@ function Study({ cards, mediaFiles }) {
           </div>
         ) : (
           <div>
-            <div className="audio-icon" onClick={() => document.getElementById(`audio-${currentCardIndex}`).play()}>
-              🔊
-            </div>
-            <p className="front-text"><span dangerouslySetInnerHTML={{ __html: currentCard[0] }} /></p>
-            {currentCard[3] && <audio id={`audio-${currentCardIndex}`} src={mediaFiles[currentCard[3].replace('[sound:', '').replace(']', '')]}></audio>}
-            <div className="pronunciation-icon" onClick={handleTogglePronunciation}>
-              📖
-            </div>
-            {showPronunciation && <p className="pronunciation-text"><span dangerouslySetInnerHTML={{ __html: currentCard[2] }} /></p>}
+            {currentCard.type === 'reading' && (
+              <>
+                <div className="audio-icon" onClick={() => document.getElementById(`audio-${currentCardIndex}`).play()}>
+                  🔊
+                </div>
+                <p className="front-text"><span dangerouslySetInnerHTML={{ __html: currentCard[0] }} /></p>
+                {currentCard[3] && <audio id={`audio-${currentCardIndex}`} src={mediaFiles[currentCard[3].replace('[sound:', '').replace(']', '')]}></audio>}
+                <div className="pronunciation-icon" onClick={handleTogglePronunciation}>
+                  📖
+                </div>
+                {showPronunciation && <p className="pronunciation-text"><span dangerouslySetInnerHTML={{ __html: currentCard[2] }} /></p>}
+              </>
+            )}
+            {currentCard.type === 'listening' && (
+              <>
+                <div className="audio-icon" onClick={() => document.getElementById(`audio-${currentCardIndex}`).play()}>
+                  🔊
+                </div>
+                {currentCard[3] && <audio id={`audio-${currentCardIndex}`} src={mediaFiles[currentCard[3].replace('[sound:', '').replace(']', '')]}></audio>}
+              </>
+            )}
+            {currentCard.type === 'picture' && (
+              <>
+                {currentCard[8] && <p><span dangerouslySetInnerHTML={{ __html: currentCard[8].replace(/<img\s+src="([^"]+)"(.*?)>/g, (match, filename, rest) => {
+                  const blobUrl = mediaFiles[filename] || filename;
+                  return `<img src="${blobUrl}"${rest}>`;
+                }) }} /></p>}
+              </>
+            )}
           </div>
         )}
       </div>
