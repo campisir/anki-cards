@@ -1,14 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-function Menu({ onStartStudy }) {
-  const [numCardsToStudy, setNumCardsToStudy] = useState(1300);
-  const [reading, setReading] = useState(1300);
-  const [listening, setListening] = useState(0);
-  const [picture, setPicture] = useState(0);
+function Menu({
+  onStartStudy,
+  numCardsToStudy: initialNumCardsToStudy,
+  reading: initialReading,
+  listening: initialListening,
+  picture: initialPicture,
+  blacklist: initialBlacklist,
+  important: initialImportant,
+  maxCards,
+}) {
+  const [numCardsToStudy, setNumCardsToStudy] = useState(initialNumCardsToStudy);
+  const [reading, setReading] = useState(initialReading);
+  const [listening, setListening] = useState(initialListening);
+  const [picture, setPicture] = useState(initialPicture);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('blacklist');
-  const [blacklist, setBlacklist] = useState('');
-  const [important, setImportant] = useState('');
+  const [blacklist, setBlacklist] = useState(initialBlacklist);
+  const [important, setImportant] = useState(initialImportant);
+
+  useEffect(() => {
+    setNumCardsToStudy(initialNumCardsToStudy);
+    setReading(initialReading);
+    setListening(initialListening);
+    setPicture(initialPicture);
+    setBlacklist(initialBlacklist);
+    setImportant(initialImportant);
+  }, [initialNumCardsToStudy, initialReading, initialListening, initialPicture, initialBlacklist, initialImportant]);
 
   const handleStartStudy = () => {
     const totalQuestions = reading + listening + picture;
@@ -20,7 +38,8 @@ function Menu({ onStartStudy }) {
   };
 
   const handleNumCardsToStudyChange = (e) => {
-    setNumCardsToStudy(Number(e.target.value));
+    const value = Math.min(Number(e.target.value), maxCards);
+    setNumCardsToStudy(value);
   };
 
   const handleNumCardsToStudyBlur = () => {
@@ -67,6 +86,7 @@ function Menu({ onStartStudy }) {
           onChange={handleNumCardsToStudyChange}
           onBlur={handleNumCardsToStudyBlur}
           title="Set the number of cards you want to study."
+          max={maxCards}
         />
       </label>
       <label>

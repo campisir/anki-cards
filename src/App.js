@@ -6,13 +6,14 @@ import Study from './components/Study';
 import './App.css';
 
 function App() {
+  const [originalCards, setOriginalCards] = useState([]);
   const [cards, setCards] = useState([]);
   const [mediaFiles, setMediaFiles] = useState({});
   const [error, setError] = useState(null);
   const [studyMode, setStudyMode] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [numCardsToStudy, setNumCardsToStudy] = useState(1300);
-  const [reading, setReading] = useState(1300);
+  const [numCardsToStudy, setNumCardsToStudy] = useState(0);
+  const [reading, setReading] = useState(0);
   const [listening, setListening] = useState(0);
   const [picture, setPicture] = useState(0);
   const [blacklist, setBlacklist] = useState('');
@@ -65,15 +66,22 @@ function App() {
             throw new Error("No cards found in the notes table.");
           }
 
-          const cardsData = res[0].values.map(row => row[0].split('\x1f'));
+          const cardsData = res[0].values.map((row, index) => ({
+            ...row[0].split('\x1f'),
+            originalIndex: index + 1
+          }));
 
+          setOriginalCards(cardsData);
           setCards(cardsData);
+          setNumCardsToStudy(cardsData.length);
+          setReading(cardsData.length);
           setError(null);
         }
       } catch (err) {
         console.error("Error loading the database:", err);
         if (isMounted) {
           setError("Failed to load the database. Please make sure the file is a valid Anki deck.");
+          setOriginalCards([]);
           setCards([]);
           setMediaFiles({});
         }
@@ -113,9 +121,9 @@ function App() {
     const blacklist = parseCardNumbers(blacklistInput);
     const important = parseCardNumbers(importantInput);
 
-    const filteredCards = cards.filter((_, index) => !blacklist.includes(index + 1));
-    const importantCards = filteredCards.filter((_, index) => important.includes(index + 1));
-    const remainingCards = filteredCards.filter((_, index) => !important.includes(index + 1));
+    const filteredCards = originalCards.filter(card => !blacklist.includes(card.originalIndex));
+    const importantCards = filteredCards.filter(card => important.includes(card.originalIndex));
+    const remainingCards = filteredCards.filter(card => !important.includes(card.originalIndex));
 
     const selectedCards = [...importantCards, ...remainingCards.slice(0, numCards - importantCards.length)];
 
@@ -123,6 +131,8 @@ function App() {
     setReading(reading);
     setListening(listening);
     setPicture(picture);
+    setBlacklist(blacklistInput);
+    setImportant(importantInput);
     setStudyMode(true);
     setCards(selectedCards);
   };
@@ -150,7 +160,16 @@ function App() {
           onBackToMenu={handleBackToMenu}
         />
       ) : (
-        <Menu onStartStudy={handleStartStudy} />
+        <Menu
+          onStartStudy={handleStartStudy}
+          numCardsToStudy={numCardsToStudy}
+          reading={reading}
+          listening={listening}
+          picture={picture}
+          blacklist={blacklist}
+          important={important}
+          maxCards={originalCards.length}
+        />
       )}
     </div>
   );
