@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './Study.css';
 
-function Study({ cards, mediaFiles, reading, listening, picture, onBackToMenu }) {
+function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onBackToMenu }) {
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [showBack, setShowBack] = useState(false);
   const [showPronunciation, setShowPronunciation] = useState(false);
   const [shuffledCards, setShuffledCards] = useState([]);
+  const [userAnswer, setUserAnswer] = useState('');
+  const [isCorrect, setIsCorrect] = useState(null);
   const wordAudioRef = useRef(null);
   const sentenceAudioRef = useRef(null);
   const listeningAudioRef = useRef(null);
@@ -46,12 +48,16 @@ function Study({ cards, mediaFiles, reading, listening, picture, onBackToMenu })
   const handleNextCard = () => {
     setShowBack(false);
     setShowPronunciation(false);
+    setUserAnswer('');
+    setIsCorrect(null);
     setCurrentCardIndex((prevIndex) => (prevIndex + 1) % shuffledCards.length);
   };
 
   const handlePreviousCard = () => {
     setShowBack(false);
     setShowPronunciation(false);
+    setUserAnswer('');
+    setIsCorrect(null);
     setCurrentCardIndex((prevIndex) => (prevIndex - 1 + shuffledCards.length) % shuffledCards.length);
   };
 
@@ -65,6 +71,8 @@ function Study({ cards, mediaFiles, reading, listening, picture, onBackToMenu })
     setCurrentCardIndex(0);
     setShowBack(false);
     setShowPronunciation(false);
+    setUserAnswer('');
+    setIsCorrect(null);
   };
 
   const handleTogglePronunciation = (event) => {
@@ -77,6 +85,25 @@ function Study({ cards, mediaFiles, reading, listening, picture, onBackToMenu })
     if (audioRef.current && document.contains(audioRef.current)) {
       audioRef.current.play();
     }
+  };
+
+  const handleAnswerChange = (e) => {
+    setUserAnswer(e.target.value);
+  };
+
+  const handleSubmitAnswer = (e) => {
+    e.preventDefault();
+    const currentCard = shuffledCards[currentCardIndex];
+    let correct = false;
+
+    if (currentCard.type === 'reading' || currentCard.type === 'listening') {
+      correct = currentCard[1].split(/\s+/).some(word => userAnswer.includes(word));
+    } else if (currentCard.type === 'picture') {
+      correct = currentCard[0] === userAnswer || currentCard[2] === userAnswer;
+    }
+
+    setIsCorrect(correct);
+    setShowBack(true);
   };
 
   if (shuffledCards.length === 0) {
@@ -159,6 +186,26 @@ function Study({ cards, mediaFiles, reading, listening, picture, onBackToMenu })
           </div>
         )}
       </div>
+      {gradedMode && (
+        <>
+          {isCorrect === null ? (
+            <form className="answer-form" onSubmit={handleSubmitAnswer}>
+              <input
+                type="text"
+                value={userAnswer}
+                onChange={handleAnswerChange}
+                placeholder="Enter your answer"
+                className="answer-input"
+              />
+              <button type="submit" className="submit-button">Submit</button>
+            </form>
+          ) : (
+            <p className="result-text">
+              {isCorrect ? 'Correct!' : 'Incorrect'}
+            </p>
+          )}
+        </>
+      )}
       <div className="button-container">
         <button className="previous-button" onClick={handlePreviousCard}>Previous</button>
         <button className="next-button" onClick={handleNextCard}>Next Card</button>

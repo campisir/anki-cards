@@ -8,6 +8,7 @@ function Menu({
   picture: initialPicture,
   blacklist: initialBlacklist,
   important: initialImportant,
+  gradedMode: initialGradedMode,
   maxCards,
 }) {
   const [numCardsToStudy, setNumCardsToStudy] = useState(initialNumCardsToStudy);
@@ -18,6 +19,7 @@ function Menu({
   const [activeTab, setActiveTab] = useState('blacklist');
   const [blacklist, setBlacklist] = useState(initialBlacklist);
   const [important, setImportant] = useState(initialImportant);
+  const [gradedMode, setGradedMode] = useState(initialGradedMode);
 
   useEffect(() => {
     setNumCardsToStudy(initialNumCardsToStudy);
@@ -26,15 +28,16 @@ function Menu({
     setPicture(initialPicture);
     setBlacklist(initialBlacklist);
     setImportant(initialImportant);
-  }, [initialNumCardsToStudy, initialReading, initialListening, initialPicture, initialBlacklist, initialImportant]);
+    setGradedMode(initialGradedMode);
+  }, [initialNumCardsToStudy, initialReading, initialListening, initialPicture, initialBlacklist, initialImportant, initialGradedMode]);
 
   const handleStartStudy = () => {
     const totalQuestions = reading + listening + picture;
-    if (totalQuestions < 1 || totalQuestions > 3 * numCardsToStudy) {
+    if (totalQuestions < 1) {
       setError('The total number of questions must be at least one.');
       return;
     }
-    onStartStudy(numCardsToStudy, reading, listening, picture, blacklist, important);
+    onStartStudy(numCardsToStudy, reading, listening, picture, blacklist, important, gradedMode);
   };
 
   const handleNumCardsToStudyChange = (e) => {
@@ -73,6 +76,10 @@ function Menu({
 
   const handleImportantChange = (e) => {
     setImportant(e.target.value);
+  };
+
+  const handleGradedModeChange = (e) => {
+    setGradedMode(e.target.checked);
   };
 
   return (
@@ -120,6 +127,15 @@ function Menu({
           max={numCardsToStudy}
           min={0}
           title="Set the number of picture questions."
+        />
+      </label>
+      <label>
+        Graded Mode:
+        <input
+          type="checkbox"
+          checked={gradedMode}
+          onChange={handleGradedModeChange}
+          title="Enable graded mode."
         />
       </label>
       <div className="tabs">

@@ -18,6 +18,7 @@ function App() {
   const [picture, setPicture] = useState(0);
   const [blacklist, setBlacklist] = useState('');
   const [important, setImportant] = useState('');
+  const [gradedMode, setGradedMode] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -117,7 +118,7 @@ function App() {
     return result;
   };
 
-  const handleStartStudy = (numCards, reading, listening, picture, blacklistInput, importantInput) => {
+  const handleStartStudy = (numCards, reading, listening, picture, blacklistInput, importantInput, gradedMode) => {
     const blacklist = parseCardNumbers(blacklistInput);
     const important = parseCardNumbers(importantInput);
 
@@ -133,6 +134,7 @@ function App() {
     setPicture(picture);
     setBlacklist(blacklistInput);
     setImportant(importantInput);
+    setGradedMode(gradedMode);
     setStudyMode(true);
     setCards(selectedCards);
   };
@@ -157,6 +159,7 @@ function App() {
           reading={reading}
           listening={listening}
           picture={picture}
+          gradedMode={gradedMode}
           onBackToMenu={handleBackToMenu}
         />
       ) : (
@@ -168,6 +171,7 @@ function App() {
           picture={picture}
           blacklist={blacklist}
           important={important}
+          gradedMode={gradedMode}
           maxCards={originalCards.length}
         />
       )}
