@@ -9,6 +9,7 @@ function Study({ cards, mediaFiles, reading, listening, picture, onBackToMenu })
   const wordAudioRef = useRef(null);
   const sentenceAudioRef = useRef(null);
   const listeningAudioRef = useRef(null);
+  const frontAudioRef = useRef(null);
 
   useEffect(() => {
     if (cards.length === 0) return;
@@ -32,6 +33,15 @@ function Study({ cards, mediaFiles, reading, listening, picture, onBackToMenu })
       listeningAudioRef.current.play();
     }
   }, [currentCardIndex, shuffledCards]);
+
+  useEffect(() => {
+    return () => {
+      if (wordAudioRef.current) wordAudioRef.current.pause();
+      if (sentenceAudioRef.current) sentenceAudioRef.current.pause();
+      if (listeningAudioRef.current) listeningAudioRef.current.pause();
+      if (frontAudioRef.current) frontAudioRef.current.pause();
+    };
+  }, [currentCardIndex, showBack]);
 
   const handleNextCard = () => {
     setShowBack(false);
@@ -57,8 +67,16 @@ function Study({ cards, mediaFiles, reading, listening, picture, onBackToMenu })
     setShowPronunciation(false);
   };
 
-  const handleTogglePronunciation = () => {
+  const handleTogglePronunciation = (event) => {
+    event.stopPropagation();
     setShowPronunciation((prevShowPronunciation) => !prevShowPronunciation);
+  };
+
+  const handlePlayAudio = (audioRef, event) => {
+    event.stopPropagation();
+    if (audioRef.current && document.contains(audioRef.current)) {
+      audioRef.current.play();
+    }
   };
 
   if (shuffledCards.length === 0) {
@@ -71,23 +89,25 @@ function Study({ cards, mediaFiles, reading, listening, picture, onBackToMenu })
     <div className="study">
       <button className="shuffle-button" onClick={handleShuffleCards}>Shuffle Cards</button>
       <button className="back-button" onClick={onBackToMenu}>Back to Menu</button>
-      <div className="card">
+      <div className="card" onClick={handleFlipCard}>
         {showBack ? (
           <div>
+            <div className="word-audio-icon" onClick={(event) => handlePlayAudio(wordAudioRef, event)}>
+              <i className="fas fa-volume-up"></i>
+            </div>
             <p className="meaning-text">
               <strong>Meaning:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[1] }} />
             </p>
             <p>
               <strong>Pronunciation:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[2] }} />
-              {currentCard[3] && (
-                <span className="audio-icon" onClick={() => wordAudioRef.current.play()}>🔊</span>
-              )}
               <audio ref={wordAudioRef} src={mediaFiles[currentCard[3]?.replace('[sound:', '').replace(']', '')]}></audio>
             </p>
             <p>
               <strong>Sentence:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[4] }} />
               {currentCard[7] && (
-                <span className="audio-icon" onClick={() => sentenceAudioRef.current.play()}>🔊</span>
+                <span className="audio-icon" onClick={(event) => handlePlayAudio(sentenceAudioRef, event)}>
+                  <i className="fas fa-volume-up"></i>
+                </span>
               )}
               <audio ref={sentenceAudioRef} src={mediaFiles[currentCard[7]?.replace('[sound:', '').replace(']', '')]}></audio>
             </p>
@@ -110,13 +130,15 @@ function Study({ cards, mediaFiles, reading, listening, picture, onBackToMenu })
           <div>
             {currentCard.type === 'reading' && (
               <>
-                <div className="audio-icon" onClick={() => document.getElementById(`audio-${currentCardIndex}`).play()}>
-                  🔊
+                <div className="word-audio-icon" onClick={(event) => handlePlayAudio(frontAudioRef, event)}>
+                  <i className="fas fa-volume-up"></i>
                 </div>
-                <p className="front-text"><span dangerouslySetInnerHTML={{ __html: currentCard[0] }} /></p>
-                {currentCard[3] && <audio id={`audio-${currentCardIndex}`} src={mediaFiles[currentCard[3].replace('[sound:', '').replace(']', '')]}></audio>}
+                <div className="front-text">
+                  <span dangerouslySetInnerHTML={{ __html: currentCard[0] }} />
+                </div>
+                {currentCard[3] && <audio ref={frontAudioRef} src={mediaFiles[currentCard[3].replace('[sound:', '').replace(']', '')]}></audio>}
                 <div className="pronunciation-icon" onClick={handleTogglePronunciation}>
-                  📖
+                  <i className={`fas ${showPronunciation ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
                 </div>
                 {showPronunciation && <p className="pronunciation-text"><span dangerouslySetInnerHTML={{ __html: currentCard[2] }} /></p>}
               </>
@@ -137,9 +159,10 @@ function Study({ cards, mediaFiles, reading, listening, picture, onBackToMenu })
           </div>
         )}
       </div>
-      <button onClick={handleFlipCard}>{showBack ? 'Show Front' : 'Show Back'}</button>
-      <button onClick={handlePreviousCard}>Previous Card</button>
-      <button onClick={handleNextCard}>Next Card</button>
+      <div className="button-container">
+        <button className="previous-button" onClick={handlePreviousCard}>Previous</button>
+        <button className="next-button" onClick={handleNextCard}>Next Card</button>
+      </div>
     </div>
   );
 }
