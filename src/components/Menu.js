@@ -6,6 +6,9 @@ function Menu({ onStartStudy }) {
   const [listening, setListening] = useState(0);
   const [picture, setPicture] = useState(0);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('blacklist');
+  const [blacklist, setBlacklist] = useState('');
+  const [important, setImportant] = useState('');
 
   const handleStartStudy = () => {
     const totalQuestions = reading + listening + picture;
@@ -13,7 +16,7 @@ function Menu({ onStartStudy }) {
       setError('The total number of questions must be at least one.');
       return;
     }
-    onStartStudy(numCardsToStudy, reading, listening, picture);
+    onStartStudy(numCardsToStudy, reading, listening, picture, blacklist, important);
   };
 
   const handleNumCardsToStudyChange = (e) => {
@@ -39,6 +42,18 @@ function Menu({ onStartStudy }) {
   const handlePictureChange = (e) => {
     const value = Number(e.target.value);
     setPicture(value > numCardsToStudy ? numCardsToStudy : value);
+  };
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+  };
+
+  const handleBlacklistChange = (e) => {
+    setBlacklist(e.target.value);
+  };
+
+  const handleImportantChange = (e) => {
+    setImportant(e.target.value);
   };
 
   return (
@@ -87,6 +102,46 @@ function Menu({ onStartStudy }) {
           title="Set the number of picture questions."
         />
       </label>
+      <div className="tabs">
+        <button
+          className={activeTab === 'blacklist' ? 'active' : ''}
+          onClick={() => handleTabChange('blacklist')}
+        >
+          Blacklist
+        </button>
+        <button
+          className={activeTab === 'important' ? 'active' : ''}
+          onClick={() => handleTabChange('important')}
+        >
+          Important
+        </button>
+      </div>
+      {activeTab === 'blacklist' && (
+        <div className="tab-content">
+          <label>
+            Blacklist:
+            <textarea
+              value={blacklist}
+              onChange={handleBlacklistChange}
+              placeholder="Enter card numbers or ranges (e.g., 2-10)"
+              title="Enter card numbers or ranges to exclude from the study session."
+            />
+          </label>
+        </div>
+      )}
+      {activeTab === 'important' && (
+        <div className="tab-content">
+          <label>
+            Important:
+            <textarea
+              value={important}
+              onChange={handleImportantChange}
+              placeholder="Enter card numbers or ranges (e.g., 20-40, 112, 114)"
+              title="Enter card numbers or ranges to include in the study session."
+            />
+          </label>
+        </div>
+      )}
       {error && <p className="error">{error}</p>}
       <button onClick={handleStartStudy} title="Start the study session with the selected settings.">Start Study</button>
     </div>

@@ -15,6 +15,8 @@ function App() {
   const [reading, setReading] = useState(1300);
   const [listening, setListening] = useState(0);
   const [picture, setPicture] = useState(0);
+  const [blacklist, setBlacklist] = useState('');
+  const [important, setImportant] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -25,37 +27,17 @@ function App() {
         const arrayBuffer = await response.arrayBuffer();
         const zip = await JSZip.loadAsync(arrayBuffer);
 
-        // See what's in the ZIP (for debugging)
-        const zipEntries = zip.file(/.*/g).map(fileObj => fileObj.name);
-        //console.log("Files in the ZIP:", zipEntries);
-
-        // ---------------------------------------------------------------------
-        // 1) Parse the "media" JSON file at the root, which maps numeric IDs to filenames
-        // ---------------------------------------------------------------------
-        // A standard .apkg has:
-        //   - collection.anki2 (or .anki21b)
-        //   - media (a JSON file, no extension)
-        //   - numeric files (0, 1, 2, etc.) for each piece of media
-        // Check for a file named exactly "media" (no extension).
         const mediaJson = zip.file(/^media$/);
         let mediaMap = {};
         if (mediaJson && mediaJson.length > 0) {
           const rawMediaJson = await mediaJson[0].async("string");
           mediaMap = JSON.parse(rawMediaJson); 
-          // e.g. { "0": "audio1.mp3", "1": "image.png", ... }
         }
 
-        // ---------------------------------------------------------------------
-        // 2) Build an object that maps "actualFilename" -> Blob URL
-        // ---------------------------------------------------------------------
         const loadedMedia = {};
-
-        // For each numeric ID: "0", "1", "2", etc. => real filename like "audio1.mp3"
         for (const [numericId, realFilename] of Object.entries(mediaMap)) {
-          // The Anki .apkg has a file named exactly numericId, e.g. "0", "1", etc.
           const mediaFileInZip = zip.file(numericId);
           if (mediaFileInZip) {
-            // Convert it to a Blob and make a browser URL
             const mediaBlob = await mediaFileInZip.async("blob");
             loadedMedia[realFilename] = URL.createObjectURL(mediaBlob);
           }
@@ -64,9 +46,6 @@ function App() {
         if (isMounted) {
           setMediaFiles(loadedMedia);
 
-          // ---------------------------------------------------------------------
-          // 3) Find the Anki DB (collection.anki2 / collection.anki21b / etc.)
-          // ---------------------------------------------------------------------
           const dbFiles = zip.file(/collection\.anki2.*/);
           if (!dbFiles || dbFiles.length === 0) {
             throw new Error("Invalid Anki deck file. Could not find 'collection.anki2*' database.");
@@ -75,9 +54,6 @@ function App() {
           const dbFile = dbFiles[0];
           const dbArrayBuffer = await dbFile.async("arraybuffer");
 
-          // ---------------------------------------------------------------------
-          // 4) Initialize and query the Anki database
-          // ---------------------------------------------------------------------
           const SQL = await initSqlJs({
             locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.5.0/sql-wasm.wasm`
           });
@@ -89,9 +65,7 @@ function App() {
             throw new Error("No cards found in the notes table.");
           }
 
-          // Split fields by the '\x1f' separator
           const cardsData = res[0].values.map(row => row[0].split('\x1f'));
-          //console.log("Extracted cards data:", cardsData);
 
           setCards(cardsData);
           setError(null);
@@ -117,12 +91,40 @@ function App() {
     };
   }, []);
 
-  const handleStartStudy = (numCards, reading, listening, picture) => {
+  const parseRange = (range) => {
+    const [start, end] = range.split('-').map(Number);
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  };
+
+  const parseCardNumbers = (input) => {
+    const numbers = input.split(/[\s,]+/).filter(Boolean);
+    const result = [];
+    numbers.forEach(num => {
+      if (num.includes('-')) {
+        result.push(...parseRange(num));
+      } else {
+        result.push(Number(num));
+      }
+    });
+    return result;
+  };
+
+  const handleStartStudy = (numCards, reading, listening, picture, blacklistInput, importantInput) => {
+    const blacklist = parseCardNumbers(blacklistInput);
+    const important = parseCardNumbers(importantInput);
+
+    const filteredCards = cards.filter((_, index) => !blacklist.includes(index + 1));
+    const importantCards = filteredCards.filter((_, index) => important.includes(index + 1));
+    const remainingCards = filteredCards.filter((_, index) => !important.includes(index + 1));
+
+    const selectedCards = [...importantCards, ...remainingCards.slice(0, numCards - importantCards.length)];
+
     setNumCardsToStudy(numCards);
     setReading(reading);
     setListening(listening);
     setPicture(picture);
     setStudyMode(true);
+    setCards(selectedCards);
   };
 
   const handleBackToMenu = () => {
