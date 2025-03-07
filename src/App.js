@@ -173,6 +173,7 @@ function App() {
           important={important}
           gradedMode={gradedMode}
           maxCards={originalCards.length}
+          originalCards={originalCards} // Pass originalCards to Menu
         />
       )}
     </div>

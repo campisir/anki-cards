@@ -10,6 +10,7 @@ function Menu({
   important: initialImportant,
   gradedMode: initialGradedMode,
   maxCards,
+  originalCards, // Receive originalCards as a prop
 }) {
   const [numCardsToStudy, setNumCardsToStudy] = useState(initialNumCardsToStudy);
   const [reading, setReading] = useState(initialReading);
@@ -37,7 +38,34 @@ function Menu({
       setError('The total number of questions must be at least one.');
       return;
     }
+
+    const blacklistArray = parseCardNumbers(blacklist);
+    const filteredCards = originalCards.filter(card => !blacklistArray.includes(card.originalIndex));
+    
+    if (filteredCards.length === 0) {
+      setError('No cards left to study after applying the blacklist.');
+      return;
+    }
+
     onStartStudy(numCardsToStudy, reading, listening, picture, blacklist, important, gradedMode);
+  };
+
+  const parseCardNumbers = (input) => {
+    const numbers = input.split(/[\s,]+/).filter(Boolean);
+    const result = [];
+    numbers.forEach(num => {
+      if (num.includes('-')) {
+        result.push(...parseRange(num));
+      } else {
+        result.push(Number(num));
+      }
+    });
+    return result;
+  };
+
+  const parseRange = (range) => {
+    const [start, end] = range.split('-').map(Number);
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
   };
 
   const handleNumCardsToStudyChange = (e) => {
