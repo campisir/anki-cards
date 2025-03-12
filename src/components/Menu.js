@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 function Menu({
   onStartStudy,
-  numCardsToStudy: initialNumCardsToStudy,
+  cardLimit: initialCardLimit,
   reading: initialReading,
   listening: initialListening,
   picture: initialPicture,
@@ -12,7 +12,7 @@ function Menu({
   maxCards,
   originalCards, // Receive originalCards as a prop
 }) {
-  const [numCardsToStudy, setNumCardsToStudy] = useState(initialNumCardsToStudy);
+  const [cardLimit, setCardLimit] = useState(initialCardLimit);
   const [reading, setReading] = useState(initialReading);
   const [listening, setListening] = useState(initialListening);
   const [picture, setPicture] = useState(initialPicture);
@@ -23,14 +23,14 @@ function Menu({
   const [gradedMode, setGradedMode] = useState(initialGradedMode);
 
   useEffect(() => {
-    setNumCardsToStudy(initialNumCardsToStudy);
+    setCardLimit(initialCardLimit);
     setReading(initialReading);
     setListening(initialListening);
     setPicture(initialPicture);
     setBlacklist(initialBlacklist);
     setImportant(initialImportant);
     setGradedMode(initialGradedMode);
-  }, [initialNumCardsToStudy, initialReading, initialListening, initialPicture, initialBlacklist, initialImportant, initialGradedMode]);
+  }, [initialCardLimit, initialReading, initialListening, initialPicture, initialBlacklist, initialImportant, initialGradedMode]);
 
   const handleStartStudy = () => {
     const totalQuestions = reading + listening + picture;
@@ -47,7 +47,7 @@ function Menu({
       return;
     }
 
-    onStartStudy(numCardsToStudy, reading, listening, picture, blacklist, important, gradedMode);
+    onStartStudy(cardLimit, reading, listening, picture, blacklist, important, gradedMode);
   };
 
   const parseCardNumbers = (input) => {
@@ -68,30 +68,30 @@ function Menu({
     return Array.from({ length: end - start + 1 }, (_, i) => start + i);
   };
 
-  const handleNumCardsToStudyChange = (e) => {
+  const handleCardLimitChange = (e) => {
     const value = Math.min(Number(e.target.value), maxCards);
-    setNumCardsToStudy(value);
+    setCardLimit(value);
   };
 
-  const handleNumCardsToStudyBlur = () => {
-    if (reading > numCardsToStudy) setReading(numCardsToStudy);
-    if (listening > numCardsToStudy) setListening(numCardsToStudy);
-    if (picture > numCardsToStudy) setPicture(numCardsToStudy);
+  const handleCardLimitBlur = () => {
+    if (reading > cardLimit) setReading(cardLimit);
+    if (listening > cardLimit) setListening(cardLimit);
+    if (picture > cardLimit) setPicture(cardLimit);
   };
 
   const handleReadingChange = (e) => {
     const value = Number(e.target.value);
-    setReading(value > numCardsToStudy ? numCardsToStudy : value);
+    setReading(value > cardLimit ? cardLimit : value);
   };
 
   const handleListeningChange = (e) => {
     const value = Number(e.target.value);
-    setListening(value > numCardsToStudy ? numCardsToStudy : value);
+    setListening(value > cardLimit ? cardLimit : value);
   };
 
   const handlePictureChange = (e) => {
     const value = Number(e.target.value);
-    setPicture(value > numCardsToStudy ? numCardsToStudy : value);
+    setPicture(value > cardLimit ? cardLimit : value);
   };
 
   const handleTabChange = (tab) => {
@@ -117,9 +117,9 @@ function Menu({
         Pull cards up to card number:
         <input
           type="number"
-          value={numCardsToStudy}
-          onChange={handleNumCardsToStudyChange}
-          onBlur={handleNumCardsToStudyBlur}
+          value={cardLimit}
+          onChange={handleCardLimitChange}
+          onBlur={handleCardLimitBlur}
           title="Set the number of cards you want to study."
           max={maxCards}
         />
@@ -130,7 +130,7 @@ function Menu({
           type="number"
           value={reading}
           onChange={handleReadingChange}
-          max={numCardsToStudy}
+          max={cardLimit}
           min={0}
           title="Set the number of reading questions."
         />
@@ -141,7 +141,7 @@ function Menu({
           type="number"
           value={listening}
           onChange={handleListeningChange}
-          max={numCardsToStudy}
+          max={cardLimit}
           min={0}
           title="Set the number of listening questions."
         />
@@ -152,7 +152,7 @@ function Menu({
           type="number"
           value={picture}
           onChange={handlePictureChange}
-          max={numCardsToStudy}
+          max={cardLimit}
           min={0}
           title="Set the number of picture questions."
         />

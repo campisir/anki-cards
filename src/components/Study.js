@@ -12,6 +12,7 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
   const sentenceAudioRef = useRef(null);
   const listeningAudioRef = useRef(null);
   const frontAudioRef = useRef(null);
+  const answerInputRef = useRef(null);
 
   useEffect(() => {
     if (cards.length === 0) return;
@@ -45,12 +46,44 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
     };
   }, [currentCardIndex, showBack]);
 
+  useEffect(() => {
+    if (showBack && wordAudioRef.current && sentenceAudioRef.current) {
+      wordAudioRef.current.play();
+      wordAudioRef.current.onended = () => {
+        sentenceAudioRef.current.play();
+      };
+    }
+  }, [showBack]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Enter') {
+        if (isCorrect !== null) {
+          handleNextCard();
+        } else if (showBack) {
+          handleNextCard();
+        }
+      } else if (e.key === ' ') {
+        e.preventDefault();
+        handleFlipCard();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showBack, isCorrect]);
+
   const handleNextCard = () => {
     setShowBack(false);
     setShowPronunciation(false);
     setUserAnswer('');
     setIsCorrect(null);
     setCurrentCardIndex((prevIndex) => (prevIndex + 1) % shuffledCards.length);
+    if (answerInputRef.current) {
+      answerInputRef.current.focus();
+    }
   };
 
   const handlePreviousCard = () => {
@@ -59,10 +92,16 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
     setUserAnswer('');
     setIsCorrect(null);
     setCurrentCardIndex((prevIndex) => (prevIndex - 1 + shuffledCards.length) % shuffledCards.length);
+    if (answerInputRef.current) {
+      answerInputRef.current.focus();
+    }
   };
 
   const handleFlipCard = () => {
     setShowBack((prevShowBack) => !prevShowBack);
+    if (!showBack && answerInputRef.current) {
+      answerInputRef.current.focus();
+    }
   };
 
   const handleShuffleCards = () => {
@@ -97,9 +136,10 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
     let correct = false;
 
     if (currentCard.type === 'reading' || currentCard.type === 'listening') {
-      correct = currentCard[1].split(/\s+/).some(word => userAnswer.includes(word));
+      const correctAnswers = currentCard[1].split(/\s*,\s*/).map(answer => answer.trim().toLowerCase()); // Split correct answers by commas and make them lowercase
+      correct = correctAnswers.some(answer => userAnswer.trim().toLowerCase() === answer);
     } else if (currentCard.type === 'picture') {
-      correct = currentCard[0] === userAnswer || currentCard[2] === userAnswer;
+      correct = currentCard[0].toLowerCase() === userAnswer.trim().toLowerCase() || currentCard[2].toLowerCase() === userAnswer.trim().toLowerCase();
     }
 
     setIsCorrect(correct);
@@ -196,13 +236,17 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
                 onChange={handleAnswerChange}
                 placeholder="Enter your answer"
                 className="answer-input"
+                ref={answerInputRef}
+                autoFocus
               />
               <button type="submit" className="submit-button">Submit</button>
             </form>
           ) : (
-            <p className="result-text">
-              {isCorrect ? 'Correct!' : 'Incorrect'}
-            </p>
+            <>
+              <p className="result-text">
+                {isCorrect ? 'Correct!' : 'Incorrect'}
+              </p>
+            </>
           )}
         </>
       )}
