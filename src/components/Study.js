@@ -57,23 +57,34 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      if (shuffledCards.length === 0) return; // Ensure shuffledCards is populated
+      if (currentCardIndex < 0 || currentCardIndex >= shuffledCards.length) return; // Ensure currentCardIndex is valid
+  
       if (e.key === 'Enter') {
-        if (isCorrect !== null) {
+        e.preventDefault(); // Prevent default form submission behavior
+  
+        if (showBack) {
+          // If the card is on the back, move to the next card
           handleNextCard();
-        } else if (showBack) {
-          handleNextCard();
+        } else if (gradedMode && isCorrect === null) {
+          // If in graded mode and the answer hasn't been submitted, submit the answer
+          handleSubmitAnswer(e);
         }
-      } else if (e.key === ' ') {
+      } else if (!gradedMode && e.key.toLowerCase() === 'f') { // Flip card with "F" key
         e.preventDefault();
         handleFlipCard();
+      } else if (e.key === 'ArrowRight') { // Go to the next card with the right arrow key
+        handleNextCard();
+      } else if (e.key === 'ArrowLeft') { // Go to the previous card with the left arrow key
+        handlePreviousCard();
       }
     };
-
+  
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [showBack, isCorrect]);
+  }, [shuffledCards, currentCardIndex, showBack, isCorrect, gradedMode, userAnswer]);
 
   const handleNextCard = () => {
     setShowBack(false);
@@ -127,21 +138,28 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
   };
 
   const handleAnswerChange = (e) => {
+    //console.log("User is typing: ", e.target.value); // Debugging log
     setUserAnswer(e.target.value);
+    //console.log("User answer is now: ", userAnswer); // Debugging log
   };
 
   const handleSubmitAnswer = (e) => {
-    e.preventDefault();
+    e.preventDefault(); // Prevent the default form submission behavior
+  
+    if (showBack || isCorrect !== null) return; // Prevent submission if the card is on the back or the answer is already graded
+  
+    //console.log("Submitting answer: ", userAnswer, " for card: ", shuffledCards[currentCardIndex]);
+  
     const currentCard = shuffledCards[currentCardIndex];
     let correct = false;
-
+  
     if (currentCard.type === 'reading' || currentCard.type === 'listening') {
       const correctAnswers = currentCard[1].split(/\s*,\s*/).map(answer => answer.trim().toLowerCase()); // Split correct answers by commas and make them lowercase
       correct = correctAnswers.some(answer => userAnswer.trim().toLowerCase() === answer);
     } else if (currentCard.type === 'picture') {
       correct = currentCard[0].toLowerCase() === userAnswer.trim().toLowerCase() || currentCard[2].toLowerCase() === userAnswer.trim().toLowerCase();
     }
-
+  
     setIsCorrect(correct);
     setShowBack(true);
   };
