@@ -143,26 +143,41 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
     //console.log("User answer is now: ", userAnswer); // Debugging log
   };
 
-  const handleSubmitAnswer = (e) => {
-    e.preventDefault(); // Prevent the default form submission behavior
-  
-    if (showBack || isCorrect !== null) return; // Prevent submission if the card is on the back or the answer is already graded
-  
-    //console.log("Submitting answer: ", userAnswer, " for card: ", shuffledCards[currentCardIndex]);
-  
-    const currentCard = shuffledCards[currentCardIndex];
-    let correct = false;
-  
-    if (currentCard.type === 'reading' || currentCard.type === 'listening') {
-      const correctAnswers = currentCard[1].split(/\s*,\s*/).map(answer => answer.trim().toLowerCase()); // Split correct answers by commas and make them lowercase
-      correct = correctAnswers.some(answer => userAnswer.trim().toLowerCase() === answer);
-    } else if (currentCard.type === 'picture') {
-      correct = currentCard[0].toLowerCase() === userAnswer.trim().toLowerCase() || currentCard[2].toLowerCase() === userAnswer.trim().toLowerCase();
-    }
-  
-    setIsCorrect(correct);
-    setShowBack(true);
-  };
+  // Utility function to strip HTML tags
+const stripHtmlTags = (html) => {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return div.textContent || div.innerText || '';
+};
+
+const handleSubmitAnswer = (e) => {
+  e.preventDefault(); // Prevent the default form submission behavior
+
+  if (showBack || isCorrect !== null) return; // Prevent submission if the card is on the back or the answer is already graded
+
+  //console.log("Comparing submitted answer: ", userAnswer, " to actual answer: ", shuffledCards[currentCardIndex][1]); // Debugging log
+
+  const currentCard = shuffledCards[currentCardIndex];
+  let correct = false;
+
+  if (currentCard.type === 'reading' || currentCard.type === 'listening') {
+    // Strip HTML tags from the correct answers
+    const correctAnswers = stripHtmlTags(currentCard[1])
+      .split(/\s*,\s*/) // Split correct answers by commas
+      .map(answer => answer.trim().toLowerCase()); // Make them lowercase and trim whitespace
+
+    correct = correctAnswers.some(answer => userAnswer.trim().toLowerCase() === answer);
+  } else if (currentCard.type === 'picture') {
+    // Strip HTML tags from the correct answers
+    const correctFront = stripHtmlTags(currentCard[0]).toLowerCase();
+    const correctBack = stripHtmlTags(currentCard[2]).toLowerCase();
+
+    correct = correctFront === userAnswer.trim().toLowerCase() || correctBack === userAnswer.trim().toLowerCase();
+  }
+
+  setIsCorrect(correct);
+  setShowBack(true);
+};
 
   if (shuffledCards.length === 0) {
     return <div>Loading cards...</div>;
@@ -202,14 +217,6 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
             <p>
               <strong>Sentence Translation:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[6] }} />
             </p>
-            {currentCard[8] && (
-              <p>
-                <span dangerouslySetInnerHTML={{ __html: currentCard[8].replace(/<img\s+src="([^"]+)"(.*?)>/g, (match, filename, rest) => {
-                  const blobUrl = mediaFiles[filename] || filename;
-                  return `<img src="${blobUrl}"${rest}>`;
-                }) }} />
-              </p>
-            )}
           </div>
         ) : (
           <div>
