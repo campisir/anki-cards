@@ -28,14 +28,14 @@ function App() {
         const response = await fetch('deck.apkg');
         const arrayBuffer = await response.arrayBuffer();
         const zip = await JSZip.loadAsync(arrayBuffer);
-
+    
         const mediaJson = zip.file(/^media$/);
         let mediaMap = {};
         if (mediaJson && mediaJson.length > 0) {
           const rawMediaJson = await mediaJson[0].async("string");
           mediaMap = JSON.parse(rawMediaJson); 
         }
-
+    
         const loadedMedia = {};
         for (const [numericId, realFilename] of Object.entries(mediaMap)) {
           const mediaFileInZip = zip.file(numericId);
@@ -44,39 +44,82 @@ function App() {
             loadedMedia[realFilename] = URL.createObjectURL(mediaBlob);
           }
         }
-
+    
         if (isMounted) {
           setMediaFiles(loadedMedia);
-
+    
           const dbFiles = zip.file(/collection\.anki2.*/);
           if (!dbFiles || dbFiles.length === 0) {
             throw new Error("Invalid Anki deck file. Could not find 'collection.anki2*' database.");
           }
-
+    
           const dbFile = dbFiles[0];
           const dbArrayBuffer = await dbFile.async("arraybuffer");
-
+    
           const SQL = await initSqlJs({
             locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.5.0/sql-wasm.wasm`
           });
-
+    
           const db = new SQL.Database(new Uint8Array(dbArrayBuffer));
-          const res = db.exec("SELECT flds FROM notes");
-
-          if (res.length === 0) {
-            throw new Error("No cards found in the notes table.");
+          const notesRes = db.exec("SELECT id, flds FROM notes");
+          const cardsRes = db.exec("SELECT nid, due, ivl, factor, reps, lapses FROM cards");
+          const revlogRes = db.exec("SELECT id, cid, ease, ivl, lastIvl, factor, time, type FROM revlog");
+    
+          if (notesRes.length === 0 || cardsRes.length === 0 || revlogRes.length === 0) {
+            throw new Error("No data found in the notes, cards, or revlog table.");
           }
-
-          const cardsData = res[0].values.map((row, index) => ({
-            ...row[0].split('\x1f'),
+    
+          const notesData = notesRes[0].values.reduce((acc, row) => {
+            acc[row[0]] = row[1].split('\x1f');
+            return acc;
+          }, {});
+    
+          const cardsData = cardsRes[0].values.map((row, index) => ({
+            ...notesData[row[0]],
+            nid: row[0],
+            due: row[1],
+            interval: row[2],
+            factor: row[3],
+            repetitions: row[4],
+            lapses: row[5],
             originalIndex: index + 1
           }));
-
-          setOriginalCards(cardsData);
-          setCards(cardsData);
-          setCardLimit(cardsData.length);
-          setReading(cardsData.length);
+    
+          const revlogData = revlogRes[0].values.reduce((acc, row) => {
+            const [id, cid, ease, ivl, lastIvl, factor, time, type] = row;
+            if (!acc[cid]) acc[cid] = [];
+            acc[cid].push({
+              timestamp: new Date(id).toLocaleString(),
+              ease,
+              interval: ivl,
+              lastInterval: lastIvl,
+              factor,
+              time: time / 1000, // convert to seconds
+              type
+            });
+            return acc;
+          }, {});
+    
+          const cardsWithRevlog = cardsData.map(card => ({
+            ...card,
+            reviews: revlogData[card.nid] || []
+          }));
+    
+          setOriginalCards(cardsWithRevlog);
+          setCards(cardsWithRevlog);
+          setCardLimit(cardsWithRevlog.length);
+          setReading(cardsWithRevlog.length);
           setError(null);
+
+          // Add this debug logging after processing the revlog data
+          //console.log("Revlog data:", revlogData);
+    
+          // Print the first ten cards with scheduling info and review logs
+          //console.log("First ten cards with scheduling info and review logs:", cardsWithRevlog.slice(7000, 7010));
+
+          // After setting the cardsWithRevlog state, add this code to sort and print the top ten cards with the most repetitions
+          const topTenCardsByRepetitions = [...cardsWithRevlog].sort((a, b) => b.repetitions - a.repetitions).slice(0, 10);
+          //console.log("Top ten cards with the most repetitions:", topTenCardsByRepetitions);
         }
       } catch (err) {
         console.error("Error loading the database:", err);
@@ -148,7 +191,7 @@ function App() {
     const shuffledSelectedCards = shuffleArray(selectedCards);
 
     // Debug logging
-    console.log("Selected card original indices:", shuffledSelectedCards.map(card => card.originalIndex));
+    //console.log("Selected card original indices:", shuffledSelectedCards.map(card => card.originalIndex));
 
     setCardLimit(cardLimit); // Update cardLimit state
     setReading(reading);
