@@ -3,6 +3,7 @@ import initSqlJs from 'sql.js';
 import JSZip from 'jszip';
 import Menu from './components/Menu';
 import Study from './components/Study';
+import CardsTable from './components/CardsTable'; // Import CardsTable
 import './App.css';
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
   const [blacklist, setBlacklist] = useState('');
   const [important, setImportant] = useState('');
   const [gradedMode, setGradedMode] = useState(false);
+  const [showTable, setShowTable] = useState(false); // New state for table view
 
   useEffect(() => {
     let isMounted = true;
@@ -118,7 +120,7 @@ function App() {
           //console.log("First ten cards with scheduling info and review logs:", cardsWithRevlog.slice(7000, 7010));
 
           // After setting the cardsWithRevlog state, add this code to sort and print the top ten cards with the most repetitions
-          const topTenCardsByRepetitions = [...cardsWithRevlog].sort((a, b) => b.repetitions - a.repetitions).slice(0, 10);
+          //const topTenCardsByRepetitions = [...cardsWithRevlog].sort((a, b) => b.repetitions - a.repetitions).slice(0, 10);
           //console.log("Top ten cards with the most repetitions:", topTenCardsByRepetitions);
         }
       } catch (err) {
@@ -208,8 +210,13 @@ function App() {
     setStudyMode(false);
   };
 
+  const handleShowCardsTable = () => {
+    setShowTable(true);
+  };
+
+
   return (
-    <div className="App">
+      <div className="App">
       {loading ? (
         <div className="loading">
           <p>Loading Cards...</p>
@@ -227,9 +234,16 @@ function App() {
           gradedMode={gradedMode}
           onBackToMenu={handleBackToMenu}
         />
+      ) : showTable ? (
+        <CardsTable
+          cards={originalCards}  // Adjust as needed if you prefer filtered cards
+          mediaFiles={mediaFiles}
+          onBackToMenu={handleBackToMenu}
+        />
       ) : (
         <Menu
           onStartStudy={handleStartStudy}
+          onShowCardsTable={handleShowCardsTable} // Pass new callback to Menu
           cardLimit={cardLimit}
           reading={reading}
           listening={listening}
@@ -238,7 +252,7 @@ function App() {
           important={important}
           gradedMode={gradedMode}
           maxCards={originalCards.length}
-          originalCards={originalCards} // Pass originalCards to Menu
+          originalCards={originalCards}
         />
       )}
     </div>

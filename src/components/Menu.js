@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 function Menu({
   onStartStudy,
+  onShowCardsTable,
   cardLimit: initialCardLimit,
   reading: initialReading,
   listening: initialListening,
@@ -207,7 +208,13 @@ function Menu({
         </div>
       )}
       {error && <p className="error">{error}</p>}
-      <button onClick={handleStartStudy} title="Start the study session with the selected settings.">Start Study</button>
+      <button onClick={handleStartStudy} title="Start the study session with the selected settings.">
+        Start Study
+      </button>
+      {/* New button to navigate to Cards Table view */}
+      <button onClick={onShowCardsTable} title="View all cards in table format">
+        View Cards Table
+      </button>
     </div>
   );
 }
