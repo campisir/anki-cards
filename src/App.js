@@ -3,24 +3,32 @@ import initSqlJs from 'sql.js';
 import JSZip from 'jszip';
 import Menu from './components/Menu';
 import Study from './components/Study';
-import CardsTable from './components/CardsTable'; // Import CardsTable
+import CardsTable from './components/CardsTable';
+import { getFrequencyMap } from './utils/getFrequencyMap';
 import './App.css';
 
+// Utility function to strip HTML tags from a string
+const stripHtmlTags = (html) => {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return div.textContent || div.innerText || '';
+};
+
 function App() {
-  const [originalCards, setOriginalCards] = useState([]);
-  const [cards, setCards] = useState([]);
+  const [originalCards, setOriginalCards] = useState([]); // unsorted, original order
+  const [cards, setCards] = useState([]); // sorted by frequency for table view
   const [mediaFiles, setMediaFiles] = useState({});
   const [error, setError] = useState(null);
   const [studyMode, setStudyMode] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [cardLimit, setCardLimit] = useState(5999); // Default to 5999
+  const [cardLimit, setCardLimit] = useState(5999);
   const [reading, setReading] = useState(0);
   const [listening, setListening] = useState(0);
   const [picture, setPicture] = useState(0);
   const [blacklist, setBlacklist] = useState('');
   const [important, setImportant] = useState('');
   const [gradedMode, setGradedMode] = useState(false);
-  const [showTable, setShowTable] = useState(false); // New state for table view
+  const [showTable, setShowTable] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -30,14 +38,14 @@ function App() {
         const response = await fetch('deck.apkg');
         const arrayBuffer = await response.arrayBuffer();
         const zip = await JSZip.loadAsync(arrayBuffer);
-    
+
+        // Load media
         const mediaJson = zip.file(/^media$/);
         let mediaMap = {};
         if (mediaJson && mediaJson.length > 0) {
           const rawMediaJson = await mediaJson[0].async("string");
-          mediaMap = JSON.parse(rawMediaJson); 
+          mediaMap = JSON.parse(rawMediaJson);
         }
-    
         const loadedMedia = {};
         for (const [numericId, realFilename] of Object.entries(mediaMap)) {
           const mediaFileInZip = zip.file(numericId);
@@ -46,36 +54,35 @@ function App() {
             loadedMedia[realFilename] = URL.createObjectURL(mediaBlob);
           }
         }
-    
+
         if (isMounted) {
           setMediaFiles(loadedMedia);
-    
+
+          // Find the DB file
           const dbFiles = zip.file(/collection\.anki2.*/);
           if (!dbFiles || dbFiles.length === 0) {
             throw new Error("Invalid Anki deck file. Could not find 'collection.anki2*' database.");
           }
-    
           const dbFile = dbFiles[0];
           const dbArrayBuffer = await dbFile.async("arraybuffer");
-    
+
           const SQL = await initSqlJs({
             locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.5.0/sql-wasm.wasm`
           });
-    
           const db = new SQL.Database(new Uint8Array(dbArrayBuffer));
           const notesRes = db.exec("SELECT id, flds FROM notes");
           const cardsRes = db.exec("SELECT nid, due, ivl, factor, reps, lapses FROM cards");
           const revlogRes = db.exec("SELECT id, cid, ease, ivl, lastIvl, factor, time, type FROM revlog");
-    
+
           if (notesRes.length === 0 || cardsRes.length === 0 || revlogRes.length === 0) {
             throw new Error("No data found in the notes, cards, or revlog table.");
           }
-    
+
           const notesData = notesRes[0].values.reduce((acc, row) => {
             acc[row[0]] = row[1].split('\x1f');
             return acc;
           }, {});
-    
+
           const cardsData = cardsRes[0].values.map((row, index) => ({
             ...notesData[row[0]],
             nid: row[0],
@@ -86,7 +93,7 @@ function App() {
             lapses: row[5],
             originalIndex: index + 1
           }));
-    
+
           const revlogData = revlogRes[0].values.reduce((acc, row) => {
             const [id, cid, ease, ivl, lastIvl, factor, time, type] = row;
             if (!acc[cid]) acc[cid] = [];
@@ -101,27 +108,47 @@ function App() {
             });
             return acc;
           }, {});
-    
+
           const cardsWithRevlog = cardsData.map(card => ({
             ...card,
             reviews: revlogData[card.nid] || []
           }));
-    
-          setOriginalCards(cardsWithRevlog);
-          setCards(cardsWithRevlog);
-          setCardLimit(cardsWithRevlog.length);
-          setReading(cardsWithRevlog.length);
-          setError(null);
 
-          // Add this debug logging after processing the revlog data
-          //console.log("Revlog data:", revlogData);
-    
-          // Print the first ten cards with scheduling info and review logs
-          //console.log("First ten cards with scheduling info and review logs:", cardsWithRevlog.slice(7000, 7010));
+          // Get the frequency map from the Excel file.
+          // The frequency map keys are Japanese words (without HTML tags) and the value is the rank (lower means higher frequency).
+          const uniqueCardsWithRevlog = [];
+const seenNotes = new Set();
+cardsWithRevlog.forEach(card => {
+  if (!seenNotes.has(card.nid)) {
+    seenNotes.add(card.nid);
+    uniqueCardsWithRevlog.push(card);
+  }
+});
 
-          // After setting the cardsWithRevlog state, add this code to sort and print the top ten cards with the most repetitions
-          //const topTenCardsByRepetitions = [...cardsWithRevlog].sort((a, b) => b.repetitions - a.repetitions).slice(0, 10);
-          //console.log("Top ten cards with the most repetitions:", topTenCardsByRepetitions);
+// Get the frequency map from the Excel file.
+const frequencyMap = await getFrequencyMap();
+
+// Compute unsorted cards with a rank property (using stripped text)
+const unsortedCardsWithRevlog = uniqueCardsWithRevlog.map(card => ({
+  ...card,
+  rank: frequencyMap[stripHtmlTags(card[0])] || 'N/A'
+}));
+
+// Compute a sorted copy (by frequency rank) for table display.
+const sortedCardsWithRevlog = [...unsortedCardsWithRevlog].sort((a, b) => {
+  const aRank = frequencyMap[stripHtmlTags(a[0])] || Infinity;
+  const bRank = frequencyMap[stripHtmlTags(b[0])] || Infinity;
+  return aRank - bRank;
+});
+
+if (isMounted) {
+  // Preserve original (unsorted) order and also store the sorted copy.
+  setOriginalCards(unsortedCardsWithRevlog);
+  setCards(sortedCardsWithRevlog);
+  setCardLimit(sortedCardsWithRevlog.length);
+  setReading(sortedCardsWithRevlog.length);
+  setError(null);
+}
         }
       } catch (err) {
         console.error("Error loading the database:", err);
@@ -175,7 +202,7 @@ function App() {
     const blacklist = parseCardNumbers(blacklistInput);
     const important = parseCardNumbers(importantInput);
 
-    // Filter cards based on the card limit
+    // Filter cards based on the card limit (using original, unsorted cards)
     const limitedCards = originalCards.filter(card => card.originalIndex <= cardLimit);
 
     // Apply blacklist and important card logic
@@ -187,15 +214,15 @@ function App() {
     const shuffledRemainingCards = shuffleArray(remainingCards);
 
     // Select the required number of cards
-    const selectedCards = [...importantCards, ...shuffledRemainingCards.slice(0, reading + listening + picture - importantCards.length)];
+    const selectedCards = [
+      ...importantCards,
+      ...shuffledRemainingCards.slice(0, reading + listening + picture - importantCards.length)
+    ];
 
     // Shuffle the selected cards for the study session
     const shuffledSelectedCards = shuffleArray(selectedCards);
 
-    // Debug logging
-    //console.log("Selected card original indices:", shuffledSelectedCards.map(card => card.originalIndex));
-
-    setCardLimit(cardLimit); // Update cardLimit state
+    setCardLimit(cardLimit);
     setReading(reading);
     setListening(listening);
     setPicture(picture);
@@ -208,15 +235,25 @@ function App() {
 
   const handleBackToMenu = () => {
     setStudyMode(false);
+    setShowTable(false);
   };
 
   const handleShowCardsTable = () => {
+    // Filter the original cards based on the current card limit.
+    const filteredCards = originalCards.filter(card => card.originalIndex <= cardLimit);
+    // Sort the filtered cards by rank. (Assuming card.rank is a number or 'N/A')
+    const sortedFilteredCards = [...filteredCards].sort((a, b) => {
+      const aRank = typeof a.rank === 'number' ? a.rank : Infinity;
+      const bRank = typeof b.rank === 'number' ? b.rank : Infinity;
+      return aRank - bRank;
+    });
+    // Update the cards state that is passed to the table.
+    setCards(sortedFilteredCards);
     setShowTable(true);
   };
 
-
   return (
-      <div className="App">
+    <div className="App">
       {loading ? (
         <div className="loading">
           <p>Loading Cards...</p>
@@ -235,15 +272,16 @@ function App() {
           onBackToMenu={handleBackToMenu}
         />
       ) : showTable ? (
+        // Pass the sorted cards (cards state) so the table shows frequency order.
         <CardsTable
-          cards={originalCards}  // Adjust as needed if you prefer filtered cards
+          cards={cards}
           mediaFiles={mediaFiles}
           onBackToMenu={handleBackToMenu}
         />
       ) : (
         <Menu
           onStartStudy={handleStartStudy}
-          onShowCardsTable={handleShowCardsTable} // Pass new callback to Menu
+          onShowCardsTable={handleShowCardsTable}
           cardLimit={cardLimit}
           reading={reading}
           listening={listening}

@@ -50,6 +50,8 @@ function CardsTable({ cards, mediaFiles, onBackToMenu }) {
       <table className="cards-table">
         <thead>
           <tr>
+            <th>Original Index</th>
+            <th>Rank</th>
             <th>Word</th>
             <th>Meaning</th>
             <th>Example Sentence</th>
@@ -62,11 +64,18 @@ function CardsTable({ cards, mediaFiles, onBackToMenu }) {
             // card[0]: Word, card[1]: Meaning,
             // card[3]: Word audio,
             // card[4]: Example Sentence, card[7]: Sentence audio,
-            // card[6]: Example Sentence Meaning
+            // card[6]: Example Sentence Meaning,
+            // card.rank is added from App.js.
             const wordAudioSrc = getAudioSrc(card[3]);
             const sentenceAudioSrc = getAudioSrc(card[7]);
             return (
               <tr key={index + indexOfFirstRow}>
+                <td>
+                  <span>{card.originalIndex}</span>
+                </td>
+                <td>
+                  <span>{card.rank}</span>
+                </td>
                 <td
                   className="clickable"
                   onClick={() => playAudio(wordAudioSrc)}
