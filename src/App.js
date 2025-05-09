@@ -4,6 +4,7 @@ import JSZip from 'jszip';
 import Menu from './components/Menu';
 import Study from './components/Study';
 import CardsTable from './components/CardsTable';
+import TimedListening from './components/TimedListening';
 import { getFrequencyMap } from './utils/getFrequencyMap';
 import './App.css';
 
@@ -29,6 +30,16 @@ function App() {
   const [important, setImportant] = useState('');
   const [gradedMode, setGradedMode] = useState(false);
   const [showTable, setShowTable] = useState(false);
+  const [timedListeningMode, setTimedListeningMode] = useState(false);
+  const [timedListeningCards, setTimedListeningCards] = useState([]);
+  const [timedListeningTimeLimit, setTimedListeningTimeLimit] = useState(10);
+
+  // Define onStartTimedListening callback
+  const handleStartTimedListening = (cardsForListening, timeLimit) => {
+    setTimedListeningCards(cardsForListening);
+    setTimedListeningTimeLimit(timeLimit);
+    setTimedListeningMode(true);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -236,6 +247,7 @@ if (isMounted) {
   const handleBackToMenu = () => {
     setStudyMode(false);
     setShowTable(false);
+    setTimedListeningMode(false);
   };
 
   const handleShowCardsTable = () => {
@@ -261,6 +273,13 @@ if (isMounted) {
             <div className="loading-progress"></div>
           </div>
         </div>
+      ) : timedListeningMode ? (
+        <TimedListening
+          cards={timedListeningCards}
+          mediaFiles={mediaFiles}
+          timeLimit={timedListeningTimeLimit}
+          onBackToMenu={handleBackToMenu}
+        />
       ) : studyMode ? (
         <Study
           cards={cards}
@@ -282,6 +301,7 @@ if (isMounted) {
         <Menu
           onStartStudy={handleStartStudy}
           onShowCardsTable={handleShowCardsTable}
+          onStartTimedListening={handleStartTimedListening} // <-- here is your onStartTimedListening prop
           cardLimit={cardLimit}
           reading={reading}
           listening={listening}

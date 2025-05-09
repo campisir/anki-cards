@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 function Menu({
   onStartStudy,
+  onStartTimedListening, // New callback for Timed Listening mode
   onShowCardsTable,
   cardLimit: initialCardLimit,
   reading: initialReading,
@@ -22,6 +23,8 @@ function Menu({
   const [blacklist, setBlacklist] = useState(initialBlacklist);
   const [important, setImportant] = useState(initialImportant);
   const [gradedMode, setGradedMode] = useState(initialGradedMode);
+  // New state for Timed Listening
+  const [timeLimit, setTimeLimit] = useState(2); // default time limit in seconds
 
   useEffect(() => {
     setCardLimit(initialCardLimit);
@@ -49,6 +52,25 @@ function Menu({
     }
 
     onStartStudy(cardLimit, reading, listening, picture, blacklist, important, gradedMode);
+  };
+
+  // (Only showing the updated handler)
+  
+  // New handler for Timed Listening start
+  const handleStartTimedListening = () => {
+    if (timeLimit < 1) {
+      setError('Time limit must be at least one second.');
+      return;
+    }
+    // First, apply the cardLimit filter
+    const limitedCards = originalCards.filter(card => card.originalIndex <= cardLimit);
+    // Then filter out only cards that have listening audio
+    const listeningCards = limitedCards.filter(card => card[3] && card[3].includes('[sound:'));
+    if (listeningCards.length === 0) {
+      setError('No listening cards available with the current selection.');
+      return;
+    }
+    onStartTimedListening(listeningCards, timeLimit);
   };
 
   const parseCardNumbers = (input) => {
@@ -109,6 +131,10 @@ function Menu({
 
   const handleGradedModeChange = (e) => {
     setGradedMode(e.target.checked);
+  };
+
+  const handleTimeLimitChange = (e) => {
+    setTimeLimit(Number(e.target.value));
   };
 
   return (
@@ -211,7 +237,24 @@ function Menu({
       <button onClick={handleStartStudy} title="Start the study session with the selected settings.">
         Start Study
       </button>
-      {/* New button to navigate to Cards Table view */}
+      {/* New section for Timed Listening */}
+      <div className="timed-listening-settings">
+        <h2>Timed Listening Mode</h2>
+        <label>
+          Time limit per card (seconds):
+          <input
+            type="number"
+            value={timeLimit}
+            onChange={handleTimeLimitChange}
+            min="1"
+            title="Set the time limit per card in seconds."
+          />
+        </label>
+        <button onClick={handleStartTimedListening} title="Start Timed Listening Mode">
+          Start Timed Listening
+        </button>
+      </div>
+      {/* Button to navigate to Cards Table view */}
       <button onClick={onShowCardsTable} title="View all cards in table format">
         View Cards Table
       </button>
