@@ -109,6 +109,45 @@ function TimedListening({ cards, mediaFiles, timeLimit, onBackToMenu }) {
         handleMark(markAsCorrect);
     };
 
+    // Keyboard controls
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (!isFlipped) {
+                // If card is not flipped, spacebar or Enter flips the card.
+                if (e.key === " " || e.key === "Enter") {
+                    e.preventDefault();
+                    handleFlip();
+                }
+            } else {
+                const correctAvailable = Number(elapsedTime) <= timeLimit;
+                if (correctAvailable) {
+                    // If correct option is available.
+                    if (e.key === "ArrowLeft" || e.key === " " || e.key === "Enter") {
+                        e.preventDefault();
+                        handleUserMark(true);
+                    } else if (e.key === "ArrowRight" || e.key === "Backspace") {
+                        e.preventDefault();
+                        handleUserMark(false);
+                    }
+                } else {
+                    // Only Incorrect option is available; any key among the specified triggers Incorrect.
+                    if (
+                        e.key === " " ||
+                        e.key === "Enter" ||
+                        e.key === "ArrowLeft" ||
+                        e.key === "ArrowRight" ||
+                        e.key === "Backspace"
+                    ) {
+                        e.preventDefault();
+                        handleUserMark(false);
+                    }
+                }
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isFlipped, elapsedTime, timeLimit]);
+
     // Victory Screen: When there are no more cards, show the victory screen.
     if(cardPool.length === 0) {
         return (
@@ -131,6 +170,9 @@ function TimedListening({ cards, mediaFiles, timeLimit, onBackToMenu }) {
                         <div className="word-audio-icon" onClick={(e) => e.stopPropagation()}>
                             <i className="fas fa-volume-up"></i>
                         </div>
+                        <p className="term-text" style={{ fontSize: '2em', marginBottom: '1em' }}>
+                            <span dangerouslySetInnerHTML={{ __html: currentCard[0] }} />
+                        </p>
                         <p className="meaning-text">
                             <strong>Meaning:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[1] }} />
                         </p>
