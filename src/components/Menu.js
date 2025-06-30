@@ -139,125 +139,196 @@ function Menu({
 
   return (
     <div className="menu">
-      <h1>Study Settings</h1>
-      <label>
-        Pull cards up to card number:
-        <input
-          type="number"
-          value={cardLimit}
-          onChange={handleCardLimitChange}
-          onBlur={handleCardLimitBlur}
-          title="Set the number of cards you want to study."
-          max={maxCards}
-        />
-      </label>
-      <label>
-        Reading:
-        <input
-          type="number"
-          value={reading}
-          onChange={handleReadingChange}
-          max={cardLimit}
-          min={0}
-          title="Set the number of reading questions."
-        />
-      </label>
-      <label>
-        Listening:
-        <input
-          type="number"
-          value={listening}
-          onChange={handleListeningChange}
-          max={cardLimit}
-          min={0}
-          title="Set the number of listening questions."
-        />
-      </label>
-      <label>
-        Picture:
-        <input
-          type="number"
-          value={picture}
-          onChange={handlePictureChange}
-          max={cardLimit}
-          min={0}
-          title="Set the number of picture questions."
-        />
-      </label>
-      <label>
-        Graded Mode:
-        <input
-          type="checkbox"
-          checked={gradedMode}
-          onChange={handleGradedModeChange}
-          title="Enable graded mode."
-        />
-      </label>
-      <div className="tabs">
-        <button
-          className={activeTab === 'blacklist' ? 'active' : ''}
-          onClick={() => handleTabChange('blacklist')}
-        >
-          Blacklist
-        </button>
-        <button
-          className={activeTab === 'important' ? 'active' : ''}
-          onClick={() => handleTabChange('important')}
-        >
-          Important
-        </button>
-      </div>
-      {activeTab === 'blacklist' && (
-        <div className="tab-content">
-          <label>
-            Blacklist:
-            <textarea
-              value={blacklist}
-              onChange={handleBlacklistChange}
-              placeholder="Enter card numbers or ranges (e.g., 2-10)"
-              title="Enter card numbers or ranges to exclude from the study session."
+      <div className="menu-container">
+        <h1>📚 Study Manager</h1>
+        
+        <div className="menu-section">
+          <h2>
+            <span>⚙️</span>
+            Study Configuration
+          </h2>
+          
+          <div className="form-group">
+            <label htmlFor="cardLimit">
+              Card Limit
+            </label>
+            <input
+              id="cardLimit"
+              type="number"
+              value={cardLimit}
+              onChange={handleCardLimitChange}
+              onBlur={handleCardLimitBlur}
+              title="Set the number of cards you want to study."
+              max={maxCards}
+              className="form-input"
             />
-          </label>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="reading">
+                📖 Reading Questions
+              </label>
+              <input
+                id="reading"
+                type="number"
+                value={reading}
+                onChange={handleReadingChange}
+                max={cardLimit}
+                min={0}
+                title="Set the number of reading questions."
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="listening">
+                🎧 Listening Questions
+              </label>
+              <input
+                id="listening"
+                type="number"
+                value={listening}
+                onChange={handleListeningChange}
+                max={cardLimit}
+                min={0}
+                title="Set the number of listening questions."
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="picture">
+                🖼️ Picture Questions
+              </label>
+              <input
+                id="picture"
+                type="number"
+                value={picture}
+                onChange={handlePictureChange}
+                max={cardLimit}
+                min={0}
+                title="Set the number of picture questions."
+                className="form-input"
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={gradedMode}
+                onChange={handleGradedModeChange}
+                title="Enable graded mode."
+              />
+              🎯 Enable Graded Mode
+            </label>
+          </div>
         </div>
-      )}
-      {activeTab === 'important' && (
-        <div className="tab-content">
-          <label>
-            Important:
-            <textarea
-              value={important}
-              onChange={handleImportantChange}
-              placeholder="Enter card numbers or ranges (e.g., 20-40, 112, 114)"
-              title="Enter card numbers or ranges to include in the study session."
+
+        <div className="menu-section">
+          <h2>
+            <span>🎛️</span>
+            Card Filters
+          </h2>
+          
+          <div className="tabs">
+            <button
+              className={`tab-button ${activeTab === 'blacklist' ? 'active' : ''}`}
+              onClick={() => handleTabChange('blacklist')}
+            >
+              🚫 Blacklist
+            </button>
+            <button
+              className={`tab-button ${activeTab === 'important' ? 'active' : ''}`}
+              onClick={() => handleTabChange('important')}
+            >
+              ⭐ Important
+            </button>
+          </div>
+
+          {activeTab === 'blacklist' && (
+            <div className="tab-content">
+              <label htmlFor="blacklist">
+                Cards to exclude from study
+              </label>
+              <textarea
+                id="blacklist"
+                value={blacklist}
+                onChange={handleBlacklistChange}
+                placeholder="Enter card numbers or ranges (e.g., 2-10, 15, 20-25)"
+                title="Enter card numbers or ranges to exclude from the study session."
+              />
+            </div>
+          )}
+
+          {activeTab === 'important' && (
+            <div className="tab-content">
+              <label htmlFor="important">
+                Priority cards to include
+              </label>
+              <textarea
+                id="important"
+                value={important}
+                onChange={handleImportantChange}
+                placeholder="Enter card numbers or ranges (e.g., 20-40, 112, 114)"
+                title="Enter card numbers or ranges to include in the study session."
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="menu-section">
+          <h2>
+            <span>⏱️</span>
+            Timed Listening Mode
+          </h2>
+          
+          <div className="form-group">
+            <label htmlFor="timeLimit">
+              Time limit per card (seconds)
+            </label>
+            <input
+              id="timeLimit"
+              type="number"
+              value={timeLimit}
+              onChange={handleTimeLimitChange}
+              min="1"
+              title="Set the time limit per card in seconds."
+              className="form-input"
             />
-          </label>
+          </div>
         </div>
-      )}
-      {error && <p className="error">{error}</p>}
-      <button onClick={handleStartStudy} title="Start the study session with the selected settings.">
-        Start Study
-      </button>
-      {/* New section for Timed Listening */}
-      <div className="timed-listening-settings">
-        <h2>Timed Listening Mode</h2>
-        <label>
-          Time limit per card (seconds):
-          <input
-            type="number"
-            value={timeLimit}
-            onChange={handleTimeLimitChange}
-            min="1"
-            title="Set the time limit per card in seconds."
-          />
-        </label>
-        <button onClick={handleStartTimedListening} title="Start Timed Listening Mode">
-          Start Timed Listening
-        </button>
+
+        {error && <div className="error">{error}</div>}
+
+        <div className="btn-group">
+          <button 
+            onClick={handleStartStudy} 
+            className="btn btn-primary btn-large"
+            title="Start the study session with the selected settings."
+          >
+            🚀 Start Study Session
+          </button>
+          
+          <button 
+            onClick={handleStartTimedListening} 
+            className="btn btn-warning btn-large"
+            title="Start Timed Listening Mode"
+          >
+            ⏱️ Start Timed Listening
+          </button>
+          
+          <button 
+            onClick={onShowCardsTable} 
+            className="btn btn-secondary"
+            title="View all cards in table format"
+          >
+            📊 View Cards Table
+          </button>
+        </div>
       </div>
-      {/* Button to navigate to Cards Table view */}
-      <button onClick={onShowCardsTable} title="View all cards in table format">
-        View Cards Table
-      </button>
     </div>
   );
 }

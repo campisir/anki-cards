@@ -47,7 +47,8 @@ function CardsTable({ cards, mediaFiles, onBackToMenu }) {
       <button onClick={onBackToMenu} className="back-button">
         Back to Menu
       </button>
-      <table className="cards-table">
+      <div className="table-container">
+        <table className="cards-table">
         <thead>
           <tr>
             <th>Original Index</th>
@@ -101,6 +102,7 @@ function CardsTable({ cards, mediaFiles, onBackToMenu }) {
           })}
         </tbody>
       </table>
+      </div>
       <div className="pagination">
         <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>
           Prev
