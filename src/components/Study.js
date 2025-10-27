@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { updateCardStats, addConfusedCards, getConfusedCards, getAllCards } from '../utils/cardService';
 import './Study.css';
 
 function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onBackToMenu }) {
@@ -13,6 +14,14 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
   const listeningAudioRef = useRef(null);
   const frontAudioRef = useRef(null);
   const answerInputRef = useRef(null);
+  
+  // Confused cards feature
+  const [showConfusedDialog, setShowConfusedDialog] = useState(false);
+  const [showConfusedList, setShowConfusedList] = useState(false);
+  const [confusedSearch, setConfusedSearch] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [confusedCardsList, setConfusedCardsList] = useState([]);
+  const [allCardsForSearch, setAllCardsForSearch] = useState([]);
 
   useEffect(() => {
     if (cards.length === 0) return;
@@ -30,6 +39,33 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
 
     setShuffledCards(combinedCards);
   }, [cards, reading, listening, picture]);
+
+  // Load all cards for search functionality
+  useEffect(() => {
+    const loadAllCards = async () => {
+      try {
+        const allCards = await getAllCards();
+        setAllCardsForSearch(allCards);
+      } catch (error) {
+        console.error('Error loading cards for search:', error);
+      }
+    };
+    loadAllCards();
+  }, []);
+
+  // Load confused cards for current card when shown
+  useEffect(() => {
+    if (showConfusedList && shuffledCards.length > 0) {
+      loadConfusedCards();
+    }
+  }, [showConfusedList, currentCardIndex, shuffledCards]);
+
+  // Update confused cards count whenever current card changes
+  useEffect(() => {
+    if (shuffledCards.length > 0) {
+      loadConfusedCards();
+    }
+  }, [currentCardIndex, shuffledCards]);
 
   useEffect(() => {
     if (shuffledCards.length > 0 && shuffledCards[currentCardIndex].type === 'listening' && listeningAudioRef.current) {
@@ -151,18 +187,105 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
     return div.textContent || div.innerText || '';
   };
 
-  const handleSubmitAnswer = (e) => {
+  // Helper to access card fields (handles both old array format and new object format)
+  const getField = (card, index) => {
+    return card.fields ? card.fields[index] : card[index];
+  };
+
+  const handleSubmitAnswer = async (e) => {
     e.preventDefault();
     
     if (showBack || isCorrect !== null) return;
 
     const currentCard = shuffledCards[currentCardIndex];
-    const correctAnswer = stripHtmlTags(currentCard[0]).toLowerCase().trim();
+    const correctAnswer = stripHtmlTags(getField(currentCard, 0)).toLowerCase().trim();
     const userAnswerTrimmed = userAnswer.toLowerCase().trim();
     
     const correct = correctAnswer === userAnswerTrimmed;
     setIsCorrect(correct);
     setShowBack(true);
+
+    // Track the answer in the database
+    try {
+      await updateCardStats(currentCard.nid, correct);
+    } catch (error) {
+      console.error('Error updating card stats:', error);
+    }
+  };
+
+  // Confused cards functionality
+  const handleSearchChange = (e) => {
+    const query = e.target.value;
+    setConfusedSearch(query);
+
+    if (query.trim() === '') {
+      setSearchResults([]);
+      return;
+    }
+
+    // Search by Japanese word (field 0) or English meaning (field 1)
+    const lowerQuery = query.toLowerCase();
+    const results = allCardsForSearch.filter(card => {
+      const word = stripHtmlTags(getField(card, 0)).toLowerCase();
+      const meaning = stripHtmlTags(getField(card, 1)).toLowerCase();
+      return word.includes(lowerQuery) || meaning.includes(lowerQuery);
+    }).slice(0, 10); // Limit to 10 results
+
+    setSearchResults(results);
+  };
+
+  const handleAddConfusion = async (confusedCardNid) => {
+    const currentCard = shuffledCards[currentCardIndex];
+    
+    if (currentCard.nid === confusedCardNid) {
+      alert("You can't mark a card as confused with itself!");
+      return;
+    }
+
+    try {
+      await addConfusedCards(currentCard.nid, confusedCardNid);
+      setShowConfusedDialog(false);
+      setConfusedSearch('');
+      setSearchResults([]);
+      
+      // Refresh confused cards list if it's open
+      if (showConfusedList) {
+        await loadConfusedCards();
+      }
+    } catch (error) {
+      console.error('Error adding confused card:', error);
+      alert('Failed to add confused card. It may already be marked.');
+    }
+  };
+
+  const loadConfusedCards = async () => {
+    const currentCard = shuffledCards[currentCardIndex];
+    try {
+      const confused = await getConfusedCards(currentCard.nid);
+      setConfusedCardsList(confused);
+    } catch (error) {
+      console.error('Error loading confused cards:', error);
+      setConfusedCardsList([]);
+    }
+  };
+
+  const handleShowConfusedDialog = () => {
+    setShowConfusedDialog(true);
+    setConfusedSearch('');
+    setSearchResults([]);
+  };
+
+  const handleCloseConfusedDialog = () => {
+    setShowConfusedDialog(false);
+    setConfusedSearch('');
+    setSearchResults([]);
+  };
+
+  const handleToggleConfusedList = async () => {
+    if (!showConfusedList) {
+      await loadConfusedCards();
+    }
+    setShowConfusedList(!showConfusedList);
   };
 
   if (shuffledCards.length === 0) {
@@ -175,7 +298,7 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
     <div className="study">
       <div className="study-header">
         <button className="back-button" onClick={onBackToMenu}>
-          ← Back to Menu
+          Back to Menu
         </button>
         <button className="shuffle-button" onClick={handleShuffleCards}>
           🔀 Shuffle Cards
@@ -190,26 +313,26 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
                 <i className="fas fa-volume-up"></i>
               </div>
               <p className="meaning-text">
-                <strong>Meaning:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[1] }} />
+                <strong>Meaning:</strong> <span dangerouslySetInnerHTML={{ __html: getField(currentCard, 1) }} />
               </p>
               <p className="pronunciation-text">
-                <strong>Pronunciation:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[2] }} />
-                <audio ref={wordAudioRef} src={mediaFiles[currentCard[3]?.replace('[sound:', '').replace(']', '')]}></audio>
+                <strong>Pronunciation:</strong> <span dangerouslySetInnerHTML={{ __html: getField(currentCard, 2) }} />
+                <audio ref={wordAudioRef} src={mediaFiles[getField(currentCard, 3)?.replace('[sound:', '').replace(']', '')]}></audio>
               </p>
               <p>
-                <strong>Sentence:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[4] }} />
-                {currentCard[7] && (
+                <strong>Sentence:</strong> <span dangerouslySetInnerHTML={{ __html: getField(currentCard, 4) }} />
+                {getField(currentCard, 7) && (
                   <span className="audio-icon" onClick={(event) => handlePlayAudio(sentenceAudioRef, event)}>
                     <i className="fas fa-volume-up"></i>
                   </span>
                 )}
-                <audio ref={sentenceAudioRef} src={mediaFiles[currentCard[7]?.replace('[sound:', '').replace(']', '')]}></audio>
+                <audio ref={sentenceAudioRef} src={mediaFiles[getField(currentCard, 7)?.replace('[sound:', '').replace(']', '')]}></audio>
               </p>
               <p>
-                <strong>Hiragana Sentence:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[5] }} />
+                <strong>Hiragana Sentence:</strong> <span dangerouslySetInnerHTML={{ __html: getField(currentCard, 5) }} />
               </p>
               <p>
-                <strong>Sentence Translation:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[6] }} />
+                <strong>Sentence Translation:</strong> <span dangerouslySetInnerHTML={{ __html: getField(currentCard, 6) }} />
               </p>
             </div>
           ) : (
@@ -220,23 +343,23 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
                     <i className="fas fa-volume-up"></i>
                   </div>
                   <div className="front-text">
-                    <span dangerouslySetInnerHTML={{ __html: currentCard[0] }} />
+                    <span dangerouslySetInnerHTML={{ __html: getField(currentCard, 0) }} />
                   </div>
-                  {currentCard[3] && <audio ref={frontAudioRef} src={mediaFiles[currentCard[3].replace('[sound:', '').replace(']', '')]}></audio>}
+                  {getField(currentCard, 3) && <audio ref={frontAudioRef} src={mediaFiles[getField(currentCard, 3).replace('[sound:', '').replace(']', '')]}></audio>}
                   <div className="pronunciation-icon" onClick={handleTogglePronunciation}>
                     <i className={`fas ${showPronunciation ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
                   </div>
-                  {showPronunciation && <p className="pronunciation-text"><span dangerouslySetInnerHTML={{ __html: currentCard[2] }} /></p>}
+                  {showPronunciation && <p className="pronunciation-text"><span dangerouslySetInnerHTML={{ __html: getField(currentCard, 2) }} /></p>}
                 </>
               )}
               {currentCard.type === 'listening' && (
                 <>
-                  <audio ref={listeningAudioRef} controls src={mediaFiles[currentCard[3].replace('[sound:', '').replace(']', '')]}></audio>
+                  <audio ref={listeningAudioRef} controls src={mediaFiles[getField(currentCard, 3).replace('[sound:', '').replace(']', '')]}></audio>
                 </>
               )}
               {currentCard.type === 'picture' && (
                 <>
-                  {currentCard[8] && <p><span dangerouslySetInnerHTML={{ __html: currentCard[8].replace(/<img\s+src="([^"]+)"(.*?)>/g, (match, filename, rest) => {
+                  {getField(currentCard, 8) && <p><span dangerouslySetInnerHTML={{ __html: getField(currentCard, 8).replace(/<img\s+src="([^"]+)"(.*?)>/g, (match, filename, rest) => {
                     const fullPath = mediaFiles[filename];
                     return `<img src="${fullPath}"${rest}>`;
                   }) }} /></p>}
@@ -271,7 +394,7 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
           )}
         </>
       )}
-      
+
       <div className="button-container">
         <button className="previous-button" onClick={handlePreviousCard}>
           ← Previous
@@ -280,6 +403,120 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
           Next Card →
         </button>
       </div>
+
+      {/* Confused Cards Section - Compact Version */}
+      <div className="confused-cards-section">
+        <details className="confused-details">
+          <summary className="confused-summary">
+            Confused Cards ({confusedCardsList.length})
+          </summary>
+          <div className="confused-content">
+            <div className="confused-actions">
+              <button 
+                className="confused-action-button add-confused"
+                onClick={handleShowConfusedDialog}
+                title="Mark a card that you confused with this one"
+              >
+                ➕ Add
+              </button>
+              {confusedCardsList.length > 0 && (
+                <button 
+                  className="confused-action-button view-confused"
+                  onClick={handleToggleConfusedList}
+                  title="View all cards confused with this one"
+                >
+                  📋 {showConfusedList ? 'Hide List' : 'View List'}
+                </button>
+              )}
+            </div>
+
+            {/* Confused Cards List Table */}
+            {showConfusedList && (
+              <div className="confused-list-container">
+                <h4>Cards Confused With This One</h4>
+                {confusedCardsList.length === 0 ? (
+                  <p className="no-confused">No confused cards yet.</p>
+                ) : (
+                  <div className="confused-table-wrapper">
+                    <table className="confused-table">
+                      <thead>
+                        <tr>
+                          <th>Word</th>
+                          <th>Meaning</th>
+                          <th>Confused Count</th>
+                          <th>Last Confused</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {confusedCardsList.map((card) => (
+                          <tr key={card.nid}>
+                            <td>
+                              <span dangerouslySetInnerHTML={{ __html: getField(card, 0) }} />
+                            </td>
+                            <td>
+                              <span dangerouslySetInnerHTML={{ __html: getField(card, 1) }} />
+                            </td>
+                            <td className="count-cell">{card.confusionCount}x</td>
+                            <td className="date-cell">
+                              {new Date(card.lastConfused).toLocaleDateString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </details>
+      </div>
+
+      {/* Add Confusion Dialog */}
+      {showConfusedDialog && (
+        <div className="confused-dialog-overlay" onClick={handleCloseConfusedDialog}>
+          <div className="confused-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="confused-dialog-header">
+              <h3>Add Confused Card</h3>
+              <button className="close-button" onClick={handleCloseConfusedDialog}>✕</button>
+            </div>
+            
+            <p className="dialog-instruction">
+              Search for the card you confused with <strong dangerouslySetInnerHTML={{ __html: getField(currentCard, 0) }} />
+            </p>
+
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Search by Japanese word or English meaning..."
+              value={confusedSearch}
+              onChange={handleSearchChange}
+              autoFocus
+            />
+
+            <div className="search-results">
+              {confusedSearch && searchResults.length === 0 && (
+                <p className="no-results">No cards found. Try a different search.</p>
+              )}
+              {searchResults.map((card) => (
+                <div 
+                  key={card.nid} 
+                  className="search-result-item"
+                  onClick={() => handleAddConfusion(card.nid)}
+                >
+                  <div className="result-word">
+                    <span dangerouslySetInnerHTML={{ __html: getField(card, 0) }} />
+                  </div>
+                  <div className="result-meaning">
+                    <span dangerouslySetInnerHTML={{ __html: getField(card, 1) }} />
+                  </div>
+                  <div className="result-index">#{card.originalIndex}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

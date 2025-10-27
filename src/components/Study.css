@@ -426,3 +426,435 @@ audio::-webkit-media-controls-panel {
   outline: 3px solid var(--primary-color);
   outline-offset: 3px;
 }
+
+/* Confused Cards Section - Compact Design */
+.confused-cards-section {
+  width: 100%;
+  max-width: 600px;
+  margin: 1rem 0 0.5rem 0;
+  z-index: 5;
+  position: relative;
+}
+
+.confused-details {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  border-radius: var(--border-radius-sm);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.confused-summary {
+  cursor: pointer;
+  padding: 0.6rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--gray-600);
+  list-style: none;
+  user-select: none;
+  transition: var(--transition);
+  text-align: center;
+}
+
+.confused-summary::-webkit-details-marker {
+  display: none;
+}
+
+.confused-summary:hover {
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--gray-700);
+}
+
+.confused-content {
+  padding: 1rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.confused-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.confused-action-button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: var(--shadow-sm);
+}
+
+.confused-action-button.add-confused {
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+  border: 1px solid rgba(217, 119, 6, 0.3);
+}
+
+.confused-action-button.add-confused:hover {
+  background: rgba(245, 158, 11, 0.25);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.confused-action-button.view-confused {
+  background: rgba(99, 102, 241, 0.15);
+  color: #6366f1;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.confused-action-button.view-confused:hover {
+  background: rgba(99, 102, 241, 0.25);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Confused List Container */
+.confused-list-container {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: var(--border-radius);
+  padding: 1rem;
+  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  animation: slideDown 0.3s ease;
+  margin-top: 0.5rem;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.confused-list-container h4 {
+  margin: 0 0 1rem 0;
+  color: var(--gray-700);
+  font-size: 1rem;
+  text-align: center;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.no-confused {
+  text-align: center;
+  color: var(--gray-500);
+  font-style: italic;
+  padding: 1rem;
+  font-size: 0.9rem;
+}
+
+/* Confused Table */
+.confused-table-wrapper {
+  overflow-x: auto;
+  border-radius: var(--border-radius);
+}
+
+.confused-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.confused-table thead {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.8), rgba(90, 103, 216, 0.8));
+  color: var(--white);
+}
+
+.confused-table th {
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
+}
+
+.confused-table tbody tr {
+  border-bottom: 1px solid var(--gray-200);
+  transition: var(--transition);
+}
+
+.confused-table tbody tr:hover {
+  background: var(--gray-50);
+}
+
+.confused-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.confused-table td {
+  padding: 0.6rem 0.75rem;
+  color: var(--gray-700);
+}
+
+.confused-table .count-cell {
+  text-align: center;
+  font-weight: 600;
+  color: var(--primary-color);
+  font-size: 0.8rem;
+}
+
+.confused-table .date-cell {
+  color: var(--gray-500);
+  font-size: 0.75rem;
+}
+
+/* Confused Dialog Overlay */
+.confused-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+  padding: 1rem;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.confused-dialog {
+  background: var(--white);
+  border-radius: var(--border-radius-lg);
+  padding: 2rem;
+  max-width: 600px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-xl);
+  animation: slideUp 0.3s ease;
+  position: relative;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.confused-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.confused-dialog-header h3 {
+  margin: 0;
+  color: var(--gray-800);
+  font-size: 1.5rem;
+}
+
+.close-button {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: none;
+  background: var(--gray-200);
+  color: var(--gray-600);
+  border-radius: 50%;
+  font-size: 1.5rem;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.close-button:hover {
+  background: var(--error-color);
+  color: var(--white);
+  transform: rotate(90deg);
+}
+
+.dialog-instruction {
+  color: var(--gray-600);
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.dialog-instruction strong {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+/* Search Input */
+.search-input {
+  width: 100%;
+  padding: 1rem 1.5rem;
+  font-size: 1rem;
+  border: 2px solid var(--gray-300);
+  border-radius: var(--border-radius-sm);
+  background: var(--white);
+  transition: var(--transition);
+  outline: none;
+  margin-bottom: 1rem;
+}
+
+.search-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Search Results */
+.search-results {
+  max-height: 400px;
+  overflow-y: auto;
+  border-radius: var(--border-radius);
+}
+
+.no-results {
+  text-align: center;
+  color: var(--gray-500);
+  font-style: italic;
+  padding: 2rem;
+}
+
+.search-result-item {
+  padding: 1rem;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--border-radius-sm);
+  margin-bottom: 0.75rem;
+  cursor: pointer;
+  transition: var(--transition);
+  background: var(--white);
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  gap: 1rem;
+  align-items: center;
+}
+
+.search-result-item:hover {
+  background: var(--gray-50);
+  border-color: var(--primary-color);
+  transform: translateX(5px);
+  box-shadow: var(--shadow-md);
+}
+
+.search-result-item:active {
+  transform: translateX(2px);
+}
+
+.result-word {
+  font-weight: 600;
+  color: var(--gray-800);
+  font-size: 1.1rem;
+}
+
+.result-meaning {
+  color: var(--gray-600);
+  font-size: 0.95rem;
+}
+
+.result-index {
+  color: var(--gray-400);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: right;
+  padding: 0.25rem 0.75rem;
+  background: var(--gray-100);
+  border-radius: var(--border-radius-sm);
+}
+
+/* Custom Scrollbar */
+.search-results::-webkit-scrollbar,
+.confused-dialog::-webkit-scrollbar {
+  width: 8px;
+}
+
+.search-results::-webkit-scrollbar-track,
+.confused-dialog::-webkit-scrollbar-track {
+  background: var(--gray-100);
+  border-radius: 10px;
+}
+
+.search-results::-webkit-scrollbar-thumb,
+.confused-dialog::-webkit-scrollbar-thumb {
+  background: var(--primary-color);
+  border-radius: 10px;
+}
+
+.search-results::-webkit-scrollbar-thumb:hover,
+.confused-dialog::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-dark);
+}
+
+/* Responsive Design for Confused Cards */
+@media (max-width: 768px) {
+  .confused-buttons {
+    flex-direction: column;
+  }
+  
+  .confused-button {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .confused-table {
+    font-size: 0.85rem;
+  }
+  
+  .confused-table th,
+  .confused-table td {
+    padding: 0.75rem 0.5rem;
+  }
+  
+  .search-result-item {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .result-index {
+    text-align: left;
+  }
+  
+  .confused-dialog {
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .confused-list-container {
+    padding: 1rem;
+  }
+  
+  .confused-table th,
+  .confused-table td {
+    padding: 0.5rem 0.25rem;
+    font-size: 0.8rem;
+  }
+  
+  .confused-table th {
+    font-size: 0.75rem;
+  }
+}

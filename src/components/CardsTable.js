@@ -61,14 +61,17 @@ function CardsTable({ cards, mediaFiles, onBackToMenu }) {
         </thead>
         <tbody>
           {currentCards.map((card, index) => {
+            // Helper to access card fields (handles both old array format and new object format)
+            const getField = (c, idx) => (c.fields ? c.fields[idx] : c[idx]);
+            
             // Mapping based on Study.js index assignments:
-            // card[0]: Word, card[1]: Meaning,
-            // card[3]: Word audio,
-            // card[4]: Example Sentence, card[7]: Sentence audio,
-            // card[6]: Example Sentence Meaning,
+            // field[0]: Word, field[1]: Meaning,
+            // field[3]: Word audio,
+            // field[4]: Example Sentence, field[7]: Sentence audio,
+            // field[6]: Example Sentence Meaning,
             // card.rank is added from App.js.
-            const wordAudioSrc = getAudioSrc(card[3]);
-            const sentenceAudioSrc = getAudioSrc(card[7]);
+            const wordAudioSrc = getAudioSrc(getField(card, 3));
+            const sentenceAudioSrc = getAudioSrc(getField(card, 7));
             return (
               <tr key={index + indexOfFirstRow}>
                 <td>
@@ -82,20 +85,20 @@ function CardsTable({ cards, mediaFiles, onBackToMenu }) {
                   onClick={() => playAudio(wordAudioSrc)}
                   title="Click to play word audio"
                 >
-                  <span dangerouslySetInnerHTML={{ __html: card[0] }} />
+                  <span dangerouslySetInnerHTML={{ __html: getField(card, 0) }} />
                 </td>
                 <td>
-                  <span dangerouslySetInnerHTML={{ __html: card[1] }} />
+                  <span dangerouslySetInnerHTML={{ __html: getField(card, 1) }} />
                 </td>
                 <td
                   className="clickable"
                   onClick={() => playAudio(sentenceAudioSrc)}
                   title="Click to play sentence audio"
                 >
-                  <span dangerouslySetInnerHTML={{ __html: card[4] }} />
+                  <span dangerouslySetInnerHTML={{ __html: getField(card, 4) }} />
                 </td>
                 <td>
-                  <span dangerouslySetInnerHTML={{ __html: card[6] }} />
+                  <span dangerouslySetInnerHTML={{ __html: getField(card, 6) }} />
                 </td>
               </tr>
             );

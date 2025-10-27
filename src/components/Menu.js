@@ -4,6 +4,7 @@ function Menu({
   onStartStudy,
   onStartTimedListening, // New callback for Timed Listening mode
   onShowCardsTable,
+  onShowSettings, // New callback for Settings
   cardLimit: initialCardLimit,
   reading: initialReading,
   listening: initialListening,
@@ -65,7 +66,12 @@ function Menu({
     // First, apply the cardLimit filter
     const limitedCards = originalCards.filter(card => card.originalIndex <= cardLimit);
     // Then filter out only cards that have listening audio
-    const listeningCards = limitedCards.filter(card => card[3] && card[3].includes('[sound:'));
+    // Helper to access card fields (handles both old array format and new object format)
+    const getField = (card, index) => (card.fields ? card.fields[index] : card[index]);
+    const listeningCards = limitedCards.filter(card => {
+      const field3 = getField(card, 3);
+      return field3 && field3.includes('[sound:');
+    });
     if (listeningCards.length === 0) {
       setError('No listening cards available with the current selection.');
       return;
@@ -326,6 +332,14 @@ function Menu({
             title="View all cards in table format"
           >
             📊 View Cards Table
+          </button>
+
+          <button 
+            onClick={onShowSettings} 
+            className="btn btn-info"
+            title="Manage database and import settings"
+          >
+            ⚙️ Database Settings
           </button>
         </div>
       </div>

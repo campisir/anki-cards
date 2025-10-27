@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import initSqlJs from 'sql.js';
-import JSZip from 'jszip';
 import Menu from './components/Menu';
 import Study from './components/Study';
 import CardsTable from './components/CardsTable';
 import TimedListening from './components/TimedListening';
-import { getFrequencyMap } from './utils/getFrequencyMap';
+import Settings from './components/Settings';
+import { getAllCards } from './utils/cardService';
+import { isDatabaseInitialized, importAnkiDeck } from './utils/ankiImportService';
+import { getMetadata } from './utils/cardService';
 import './App.css';
 
 // Utility function to strip HTML tags from a string
@@ -30,9 +31,22 @@ function App() {
   const [important, setImportant] = useState('');
   const [gradedMode, setGradedMode] = useState(false);
   const [showTable, setShowTable] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [timedListeningMode, setTimedListeningMode] = useState(false);
   const [timedListeningCards, setTimedListeningCards] = useState([]);
   const [timedListeningTimeLimit, setTimedListeningTimeLimit] = useState(10);
+  const [dbInitialized, setDbInitialized] = useState(false);
+
+  // Cleanup blob URLs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      Object.values(mediaFiles).forEach(url => {
+        if (typeof url === 'string' && url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      });
+    };
+  }, [mediaFiles]);
 
   // Define onStartTimedListening callback
   const handleStartTimedListening = (cardsForListening, timeLimit) => {
@@ -44,127 +58,66 @@ function App() {
   useEffect(() => {
     let isMounted = true;
 
-    const loadDeck = async () => {
+    const loadData = async () => {
       try {
-        const response = await fetch('deck.apkg');
-        const arrayBuffer = await response.arrayBuffer();
-        const zip = await JSZip.loadAsync(arrayBuffer);
+        // Check if database is initialized
+        const initialized = await isDatabaseInitialized();
+        setDbInitialized(initialized);
 
-        // Load media
-        const mediaJson = zip.file(/^media$/);
-        let mediaMap = {};
-        if (mediaJson && mediaJson.length > 0) {
-          const rawMediaJson = await mediaJson[0].async("string");
-          mediaMap = JSON.parse(rawMediaJson);
-        }
-        const loadedMedia = {};
-        for (const [numericId, realFilename] of Object.entries(mediaMap)) {
-          const mediaFileInZip = zip.file(numericId);
-          if (mediaFileInZip) {
-            const mediaBlob = await mediaFileInZip.async("blob");
-            loadedMedia[realFilename] = URL.createObjectURL(mediaBlob);
-          }
-        }
-
-        if (isMounted) {
-          setMediaFiles(loadedMedia);
-
-          // Find the DB file
-          const dbFiles = zip.file(/collection\.anki2.*/);
-          if (!dbFiles || dbFiles.length === 0) {
-            throw new Error("Invalid Anki deck file. Could not find 'collection.anki2*' database.");
-          }
-          const dbFile = dbFiles[0];
-          const dbArrayBuffer = await dbFile.async("arraybuffer");
-
-          const SQL = await initSqlJs({
-            locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.5.0/sql-wasm.wasm`
+        if (!initialized) {
+          // First time setup - automatically import the default deck
+          console.log('Database not initialized. Importing default deck...');
+          await importAnkiDeck('deck.apkg', (progress, message) => {
+            console.log(`Import progress: ${progress}% - ${message}`);
           });
-          const db = new SQL.Database(new Uint8Array(dbArrayBuffer));
-          const notesRes = db.exec("SELECT id, flds FROM notes");
-          const cardsRes = db.exec("SELECT nid, due, ivl, factor, reps, lapses FROM cards");
-          const revlogRes = db.exec("SELECT id, cid, ease, ivl, lastIvl, factor, time, type FROM revlog");
+        }
 
-          if (notesRes.length === 0 || cardsRes.length === 0 || revlogRes.length === 0) {
-            throw new Error("No data found in the notes, cards, or revlog table.");
+        // Load cards from IndexedDB
+        const cardsFromDB = await getAllCards();
+        
+        // Load media files from metadata
+        const mediaFromDB = await getMetadata('mediaFiles');
+        
+        console.log('Media files loaded from DB:', mediaFromDB ? Object.keys(mediaFromDB).length : 0, 'files');
+
+        if (isMounted && cardsFromDB.length > 0) {
+          // Separate unsorted (original order) and sorted (by frequency) cards
+          const unsortedCards = [...cardsFromDB].sort((a, b) => a.originalIndex - b.originalIndex);
+          const sortedCards = [...cardsFromDB].sort((a, b) => {
+            const aRank = typeof a.rank === 'number' ? a.rank : Infinity;
+            const bRank = typeof b.rank === 'number' ? b.rank : Infinity;
+            return aRank - bRank;
+          });
+
+          setOriginalCards(unsortedCards);
+          setCards(sortedCards);
+          setCardLimit(sortedCards.length);
+          setReading(sortedCards.length);
+          
+          // Convert stored blobs to blob URLs for use in the app
+          if (mediaFromDB && typeof mediaFromDB === 'object') {
+            const mediaUrls = {};
+            for (const [filename, blob] of Object.entries(mediaFromDB)) {
+              if (blob instanceof Blob) {
+                mediaUrls[filename] = URL.createObjectURL(blob);
+              }
+            }
+            console.log('Created blob URLs for', Object.keys(mediaUrls).length, 'media files');
+            setMediaFiles(mediaUrls);
+          } else {
+            console.warn('No media files found in metadata, setting empty object');
+            setMediaFiles({});
           }
-
-          const notesData = notesRes[0].values.reduce((acc, row) => {
-            acc[row[0]] = row[1].split('\x1f');
-            return acc;
-          }, {});
-
-          const cardsData = cardsRes[0].values.map((row, index) => ({
-            ...notesData[row[0]],
-            nid: row[0],
-            due: row[1],
-            interval: row[2],
-            factor: row[3],
-            repetitions: row[4],
-            lapses: row[5],
-            originalIndex: index + 1
-          }));
-
-          const revlogData = revlogRes[0].values.reduce((acc, row) => {
-            const [id, cid, ease, ivl, lastIvl, factor, time, type] = row;
-            if (!acc[cid]) acc[cid] = [];
-            acc[cid].push({
-              timestamp: new Date(id).toLocaleString(),
-              ease,
-              interval: ivl,
-              lastInterval: lastIvl,
-              factor,
-              time: time / 1000, // convert to seconds
-              type
-            });
-            return acc;
-          }, {});
-
-          const cardsWithRevlog = cardsData.map(card => ({
-            ...card,
-            reviews: revlogData[card.nid] || []
-          }));
-
-          // Get the frequency map from the Excel file.
-          // The frequency map keys are Japanese words (without HTML tags) and the value is the rank (lower means higher frequency).
-          const uniqueCardsWithRevlog = [];
-const seenNotes = new Set();
-cardsWithRevlog.forEach(card => {
-  if (!seenNotes.has(card.nid)) {
-    seenNotes.add(card.nid);
-    uniqueCardsWithRevlog.push(card);
-  }
-});
-
-// Get the frequency map from the Excel file.
-const frequencyMap = await getFrequencyMap();
-
-// Compute unsorted cards with a rank property (using stripped text)
-const unsortedCardsWithRevlog = uniqueCardsWithRevlog.map(card => ({
-  ...card,
-  rank: frequencyMap[stripHtmlTags(card[0])] || 'N/A'
-}));
-
-// Compute a sorted copy (by frequency rank) for table display.
-const sortedCardsWithRevlog = [...unsortedCardsWithRevlog].sort((a, b) => {
-  const aRank = frequencyMap[stripHtmlTags(a[0])] || Infinity;
-  const bRank = frequencyMap[stripHtmlTags(b[0])] || Infinity;
-  return aRank - bRank;
-});
-
-if (isMounted) {
-  // Preserve original (unsorted) order and also store the sorted copy.
-  setOriginalCards(unsortedCardsWithRevlog);
-  setCards(sortedCardsWithRevlog);
-  setCardLimit(sortedCardsWithRevlog.length);
-  setReading(sortedCardsWithRevlog.length);
-  setError(null);
-}
+          
+          setError(null);
+          setDbInitialized(true);
+        } else if (isMounted) {
+          setError("No cards found in database. Please import your deck in Settings.");
         }
       } catch (err) {
-        console.error("Error loading the database:", err);
+        console.error("Error loading data:", err);
         if (isMounted) {
-          setError("Failed to load the database. Please make sure the file is a valid Anki deck.");
+          setError("Failed to load data from database. Please try importing your deck in Settings.");
           setOriginalCards([]);
           setCards([]);
           setMediaFiles({});
@@ -176,7 +129,7 @@ if (isMounted) {
       }
     };
 
-    loadDeck();
+    loadData();
 
     return () => {
       isMounted = false;
@@ -247,7 +200,55 @@ if (isMounted) {
   const handleBackToMenu = () => {
     setStudyMode(false);
     setShowTable(false);
+    setShowSettings(false);
     setTimedListeningMode(false);
+  };
+
+  const handleShowSettings = () => {
+    setShowSettings(true);
+  };
+
+  const handleSettingsClosed = async () => {
+    setShowSettings(false);
+    
+    // Reload cards from database in case they were updated
+    try {
+      const cardsFromDB = await getAllCards();
+      const mediaFromDB = await getMetadata('mediaFiles');
+      
+      console.log('Reloading after settings - Media files:', mediaFromDB ? Object.keys(mediaFromDB).length : 0, 'files');
+      
+      if (cardsFromDB.length > 0) {
+        const unsortedCards = [...cardsFromDB].sort((a, b) => a.originalIndex - b.originalIndex);
+        const sortedCards = [...cardsFromDB].sort((a, b) => {
+          const aRank = typeof a.rank === 'number' ? a.rank : Infinity;
+          const bRank = typeof b.rank === 'number' ? b.rank : Infinity;
+          return aRank - bRank;
+        });
+
+        setOriginalCards(unsortedCards);
+        setCards(sortedCards);
+        
+        // Convert stored blobs to blob URLs
+        if (mediaFromDB && typeof mediaFromDB === 'object') {
+          const mediaUrls = {};
+          for (const [filename, blob] of Object.entries(mediaFromDB)) {
+            if (blob instanceof Blob) {
+              mediaUrls[filename] = URL.createObjectURL(blob);
+            }
+          }
+          console.log('Created blob URLs for', Object.keys(mediaUrls).length, 'media files after settings');
+          setMediaFiles(mediaUrls);
+        } else {
+          console.warn('No media files in metadata after settings reload');
+          setMediaFiles({});
+        }
+        
+        setError(null);
+      }
+    } catch (err) {
+      console.error('Error reloading cards:', err);
+    }
   };
 
   const handleShowCardsTable = () => {
@@ -273,6 +274,8 @@ if (isMounted) {
             <div className="loading-progress"></div>
           </div>
         </div>
+      ) : showSettings ? (
+        <Settings onBackToMenu={handleSettingsClosed} />
       ) : timedListeningMode ? (
         <TimedListening
           cards={timedListeningCards}
@@ -301,7 +304,8 @@ if (isMounted) {
         <Menu
           onStartStudy={handleStartStudy}
           onShowCardsTable={handleShowCardsTable}
-          onStartTimedListening={handleStartTimedListening} // <-- here is your onStartTimedListening prop
+          onStartTimedListening={handleStartTimedListening}
+          onShowSettings={handleShowSettings}
           cardLimit={cardLimit}
           reading={reading}
           listening={listening}

@@ -25,6 +25,11 @@ function TimedListening({ cards, mediaFiles, timeLimit, onBackToMenu }) {
 
     const currentCard = cardPool[currentIndex];
 
+    // Helper to access card fields (handles both old array format and new object format)
+    const getField = (card, index) => {
+        return card && card.fields ? card.fields[index] : (card ? card[index] : null);
+    };
+
     // Start the live timer to update elapsedTime.
     // The timer counts upward continuously, regardless of the timeLimit.
     const startTimer = () => {
@@ -48,7 +53,7 @@ function TimedListening({ cards, mediaFiles, timeLimit, onBackToMenu }) {
         setElapsedTime(0);
         clearInterval(intervalRef.current);
     
-        if (currentCard[3] && audioRef.current) {
+        if (getField(currentCard, 3) && audioRef.current) {
             audioRef.current.load();
             audioRef.current.play()
                 .then(() => {
@@ -171,22 +176,22 @@ function TimedListening({ cards, mediaFiles, timeLimit, onBackToMenu }) {
                             <i className="fas fa-volume-up"></i>
                         </div>
                         <p className="term-text" style={{ fontSize: '2em', marginBottom: '1em' }}>
-                            <span dangerouslySetInnerHTML={{ __html: currentCard[0] }} />
+                            <span dangerouslySetInnerHTML={{ __html: getField(currentCard, 0) }} />
                         </p>
                         <p className="meaning-text">
-                            <strong>Meaning:</strong> <span dangerouslySetInnerHTML={{ __html: currentCard[1] }} />
+                            <strong>Meaning:</strong> <span dangerouslySetInnerHTML={{ __html: getField(currentCard, 1) }} />
                         </p>
                         <p className="flip-duration">Flip Time: {elapsedTime} seconds</p>
                     </div>
                 ) : (
                     <div className="card-front">
                         <p className="front-text"><strong>Listening Card</strong></p>
-                        {currentCard[3] && (
+                        {getField(currentCard, 3) && (
                             <audio
                                 ref={audioRef}
                                 controls
                                 style={{ display: 'none' }}
-                                src={mediaFiles[currentCard[3].replace('[sound:', '').replace(']', '')]}
+                                src={mediaFiles[getField(currentCard, 3).replace('[sound:', '').replace(']', '')]}
                             />
                         )}
                         <p>Audio is playing... Click to flip when ready.</p>
