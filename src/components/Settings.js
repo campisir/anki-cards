@@ -47,7 +47,7 @@ function Settings({ onBackToMenu }) {
 
   const handleFullImport = async () => {
     if (!selectedFile && !isInitialized) {
-      setMessage({ type: 'error', text: 'Please select an .apkg file to import.' });
+      setMessage({ type: 'error', text: 'Please select an .apkg or .colpkg file to import.' });
       return;
     }
 
@@ -83,7 +83,7 @@ function Settings({ onBackToMenu }) {
 
   const handleSyncStats = async () => {
     if (!selectedFile && !isInitialized) {
-      setMessage({ type: 'error', text: 'Please select an .apkg file to sync.' });
+      setMessage({ type: 'error', text: 'Please select an .apkg or .colpkg file to sync.' });
       return;
     }
 
@@ -259,7 +259,7 @@ function Settings({ onBackToMenu }) {
           <div className="file-selection">
             <input
               type="file"
-              accept=".apkg"
+              accept=".apkg,.colpkg"
               onChange={handleFileChange}
               disabled={loading}
               id="apkg-file-input"

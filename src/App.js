@@ -66,10 +66,18 @@ function App() {
 
         if (!initialized) {
           // First time setup - automatically import the default deck
+          // Try .colpkg first (has complete review history), then fall back to .apkg
           console.log('Database not initialized. Importing default deck...');
-          await importAnkiDeck('deck.apkg', (progress, message) => {
-            console.log(`Import progress: ${progress}% - ${message}`);
-          });
+          try {
+            await importAnkiDeck('deck-collection.colpkg', (progress, message) => {
+              console.log(`Import progress: ${progress}% - ${message}`);
+            });
+          } catch (error) {
+            console.log('No .colpkg found, trying .apkg...');
+            await importAnkiDeck('deck.apkg', (progress, message) => {
+              console.log(`Import progress: ${progress}% - ${message}`);
+            });
+          }
         }
 
         // Load cards from IndexedDB
@@ -81,6 +89,56 @@ function App() {
         console.log('Media files loaded from DB:', mediaFromDB ? Object.keys(mediaFromDB).length : 0, 'files');
 
         if (isMounted && cardsFromDB.length > 0) {
+          // Check review history completeness
+          const allReviews = [];
+          
+          cardsFromDB.forEach(card => {
+            if (card.reviews && Array.isArray(card.reviews)) {
+              card.reviews.forEach(review => {
+                if (review.timestamp) {
+                  const date = new Date(review.timestamp);
+                  // Anki day boundary: reviews before 4 AM count as previous day
+                  const adjustedDate = new Date(date);
+                  if (adjustedDate.getHours() < 4) {
+                    adjustedDate.setDate(adjustedDate.getDate() - 1);
+                  }
+                  
+                  const year = adjustedDate.getFullYear();
+                  const month = String(adjustedDate.getMonth() + 1).padStart(2, '0');
+                  const day = String(adjustedDate.getDate()).padStart(2, '0');
+                  const dateStr = `${year}-${month}-${day}`;
+                  allReviews.push(dateStr);
+                }
+              });
+            }
+          });
+
+          if (allReviews.length > 0) {
+            const uniqueDates = [...new Set(allReviews)].sort();
+            const firstDate = new Date(uniqueDates[0]);
+            const lastDate = new Date(uniqueDates[uniqueDates.length - 1]);
+            
+            // Check for review history gaps
+            const daysWithZeroReviews = [];
+            let currentDate = new Date(firstDate);
+            
+            while (currentDate <= lastDate) {
+              const dateStr = currentDate.toISOString().split('T')[0];
+              if (!uniqueDates.includes(dateStr)) {
+                daysWithZeroReviews.push(dateStr);
+              }
+              currentDate.setDate(currentDate.getDate() + 1);
+            }
+            
+            console.log(`Review History: ${uniqueDates[0]} to ${uniqueDates[uniqueDates.length - 1]} (${allReviews.length} total reviews)`);
+            
+            if (daysWithZeroReviews.length > 0) {
+              console.warn(`⚠️ ${daysWithZeroReviews.length} day(s) with no reviews`);
+            } else {
+              console.log('✅ Complete review history - no gaps!');
+            }
+          }
+
           // Separate unsorted (original order) and sorted (by frequency) cards
           const unsortedCards = [...cardsFromDB].sort((a, b) => a.originalIndex - b.originalIndex);
           const sortedCards = [...cardsFromDB].sort((a, b) => {

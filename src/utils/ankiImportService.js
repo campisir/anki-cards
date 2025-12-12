@@ -1,9 +1,15 @@
 /**
- * Service for importing Anki .apkg files into the local database
+ * Service for importing Anki .apkg and .colpkg files into the local database
+ * .apkg = deck package (may have incomplete review history)
+ * .colpkg = collection package (complete review history)
+ * 
+ * Supports both old format (zip) and new format (zstd compression)
  */
 
 import initSqlJs from 'sql.js';
 import JSZip from 'jszip';
+import { unzlib } from 'fflate';
+import { decompress as decompressZstd } from 'fzstd';
 import { saveMultipleCards, updateAnkiStats, getCard, setMetadata, getMetadata } from './cardService';
 import { getFrequencyMap } from './getFrequencyMap';
 
@@ -15,9 +21,47 @@ const stripHtmlTags = (html) => {
 };
 
 /**
- * Import an Anki .apkg file into the database (full import)
+ * Check if data is zstd compressed by checking the magic number
+ */
+const isZstdCompressed = (data) => {
+  if (data.length < 4) return false;
+  const view = new DataView(data.buffer || data, data.byteOffset || 0, Math.min(4, data.length));
+  const magic = view.getUint32(0, true);
+  return magic === 0xFD2FB528; // zstd magic number (little-endian)
+};
+
+/**
+ * Try to decompress data if it's compressed
+ */
+const tryDecompress = (data) => {
+  const uint8Data = new Uint8Array(data);
+  
+  // Check for zstd compression
+  if (isZstdCompressed(uint8Data)) {
+    console.log('Detected zstd compression, decompressing...');
+    try {
+      return decompressZstd(uint8Data);
+    } catch (e) {
+      console.error('Zstd decompression failed:', e);
+    }
+  }
+  
+  // Try zlib/gzip decompression
+  try {
+    const decompressed = unzlib(uint8Data);
+    console.log('Successfully decompressed with zlib');
+    return decompressed;
+  } catch (e) {
+    // Not compressed or different format, return as-is
+    console.log('Data not compressed or using original format');
+    return uint8Data;
+  }
+};
+
+/**
+ * Import an Anki .apkg or .colpkg file into the database (full import)
  * This creates new cards or replaces existing ones completely
- * @param {File|string} source - File object or URL to .apkg file
+ * @param {File|string} source - File object or URL to .apkg or .colpkg file
  * @param {Function} progressCallback - Called with progress updates (0-100)
  * @returns {Promise<{cards: number, media: Object}>}
  */
@@ -43,8 +87,29 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
     const mediaJson = zip.file(/^media$/);
     let mediaMap = {};
     if (mediaJson && mediaJson.length > 0) {
-      const rawMediaJson = await mediaJson[0].async("string");
-      mediaMap = JSON.parse(rawMediaJson);
+      try {
+        // Try as string first (old format)
+        const rawMediaJson = await mediaJson[0].async("string");
+        mediaMap = JSON.parse(rawMediaJson);
+        console.log('Loaded media map (old format):', Object.keys(mediaMap).length, 'files');
+      } catch (e) {
+        console.log('Old format failed, trying decompression...');
+        try {
+          // If string parsing fails, try decompressing (new format)
+          const mediaBuffer = await mediaJson[0].async("arraybuffer");
+          const decompressed = tryDecompress(mediaBuffer);
+          const decoder = new TextDecoder('utf-8');
+          const jsonString = decoder.decode(decompressed);
+          mediaMap = JSON.parse(jsonString);
+          console.log('Loaded media map (compressed format):', Object.keys(mediaMap).length, 'files');
+        } catch (e2) {
+          console.warn('Could not parse media file, skipping media:', e2.message);
+          // Continue without media - not critical for card data
+          mediaMap = {};
+        }
+      }
+    } else {
+      console.log('No media file found in archive');
     }
 
     const loadedMedia = {};
@@ -79,7 +144,11 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
     }
 
     const dbFile = dbFiles[0];
-    const dbArrayBuffer = await dbFile.async("arraybuffer");
+    let dbArrayBuffer = await dbFile.async("arraybuffer");
+
+    // Try to decompress if it's compressed
+    if (progressCallback) progressCallback(45, 'Decompressing database if needed...');
+    const dbData = tryDecompress(dbArrayBuffer);
 
     if (progressCallback) progressCallback(50, 'Parsing Anki database...');
 
@@ -87,11 +156,11 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
       locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.5.0/sql-wasm.wasm`
     });
 
-    const db = new SQL.Database(new Uint8Array(dbArrayBuffer));
+    const db = new SQL.Database(dbData);
 
     // Extract data from Anki database
     const notesRes = db.exec("SELECT id, flds FROM notes");
-    const cardsRes = db.exec("SELECT nid, due, ivl, factor, reps, lapses FROM cards");
+    const cardsRes = db.exec("SELECT id, nid, due, ivl, factor, reps, lapses FROM cards");
     const revlogRes = db.exec("SELECT id, cid, ease, ivl, lastIvl, factor, time, type FROM revlog");
 
     if (notesRes.length === 0 || cardsRes.length === 0 || revlogRes.length === 0) {
@@ -108,22 +177,29 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
 
     // Build cards data
     const cardsData = cardsRes[0].values.map((row, index) => ({
-      fields: notesData[row[0]],
-      nid: row[0],
-      due: row[1],
-      interval: row[2],
-      factor: row[3],
-      repetitions: row[4],
-      lapses: row[5],
+      cid: row[0], // card ID - needed to match with revlog
+      fields: notesData[row[1]],
+      nid: row[1],
+      due: row[2],
+      interval: row[3],
+      factor: row[4],
+      repetitions: row[5],
+      lapses: row[6],
       originalIndex: index + 1
     }));
 
-    // Build review log data
+    // Build review log data - keyed by card ID (cid)
+    // Note: revlog ID is in milliseconds since epoch
     const revlogData = revlogRes[0].values.reduce((acc, row) => {
       const [id, cid, ease, ivl, lastIvl, factor, time, type] = row;
       if (!acc[cid]) acc[cid] = [];
+      
+      // Store timestamp as ISO string for consistent parsing
+      const reviewDate = new Date(id);
+      
       acc[cid].push({
-        timestamp: new Date(id).toLocaleString(),
+        timestamp: reviewDate.toISOString(), // ISO format for consistency
+        timestampMs: id, // Keep original timestamp for reference
         ease,
         interval: ivl,
         lastInterval: lastIvl,
@@ -133,20 +209,32 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
       });
       return acc;
     }, {});
-
-    // Add reviews to cards
+    
+    // Add reviews to cards using card ID (cid)
     const cardsWithRevlog = cardsData.map(card => ({
       ...card,
-      reviews: revlogData[card.nid] || []
+      reviews: revlogData[card.cid] || []
     }));
 
-    // Remove duplicates (same nid)
+    // Merge cards with the same note ID (e.g., listening and reading versions)
+    // Keep one card per note, but combine all reviews from all card types
     const uniqueCards = [];
-    const seenNotes = new Set();
+    const cardsByNote = new Map();
+    
     cardsWithRevlog.forEach(card => {
-      if (!seenNotes.has(card.nid)) {
-        seenNotes.add(card.nid);
+      if (!cardsByNote.has(card.nid)) {
+        // First card for this note - keep it
+        cardsByNote.set(card.nid, card);
         uniqueCards.push(card);
+      } else {
+        // Another card for the same note (e.g., listening vs reading)
+        // Merge its reviews into the first card
+        const existingCard = cardsByNote.get(card.nid);
+        existingCard.reviews = [...existingCard.reviews, ...card.reviews];
+        
+        // Also sum up the repetition counts
+        existingCard.repetitions += card.repetitions;
+        existingCard.lapses += card.lapses;
       }
     });
 
