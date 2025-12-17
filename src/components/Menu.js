@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import './Menu.css';
 
 function Menu({
   onStartStudy,
-  onStartTimedListening, // New callback for Timed Listening mode
+  onStartTimedListening,
   onShowCardsTable,
-  onShowSettings, // New callback for Settings
+  onShowSettings,
   cardLimit: initialCardLimit,
   reading: initialReading,
   listening: initialListening,
@@ -13,8 +14,9 @@ function Menu({
   important: initialImportant,
   gradedMode: initialGradedMode,
   maxCards,
-  originalCards, // Receive originalCards as a prop
+  originalCards,
 }) {
+  const [currentView, setCurrentView] = useState('main'); // 'main', 'flashcard', 'timed'
   const [cardLimit, setCardLimit] = useState(initialCardLimit);
   const [reading, setReading] = useState(initialReading);
   const [listening, setListening] = useState(initialListening);
@@ -24,8 +26,7 @@ function Menu({
   const [blacklist, setBlacklist] = useState(initialBlacklist);
   const [important, setImportant] = useState(initialImportant);
   const [gradedMode, setGradedMode] = useState(initialGradedMode);
-  // New state for Timed Listening
-  const [timeLimit, setTimeLimit] = useState(2); // default time limit in seconds
+  const [timeLimit, setTimeLimit] = useState(2);
 
   useEffect(() => {
     setCardLimit(initialCardLimit);
@@ -143,205 +144,269 @@ function Menu({
     setTimeLimit(Number(e.target.value));
   };
 
+  // Main menu render
+  const renderMainMenu = () => (
+    <div className="menu-grid">
+      {/* Study Modes Section */}
+      <div className="menu-category">
+        <h2 className="category-title">
+          <span className="category-icon">📚</span>
+          Study Modes
+        </h2>
+        
+        <div className="feature-card" onClick={() => setCurrentView('flashcard')}>
+          <div className="feature-icon">🗂️</div>
+          <h3>Flashcard Study</h3>
+          <p>Classic flashcard review with customizable question types</p>
+          <div className="feature-badge active">Ready</div>
+        </div>
+
+        <div className="feature-card" onClick={() => setCurrentView('timed')}>
+          <div className="feature-icon">⏱️</div>
+          <h3>Timed Listening</h3>
+          <p>Speed practice with time-limited audio challenges</p>
+          <div className="feature-badge active">Ready</div>
+        </div>
+
+        <div className="feature-card disabled">
+          <div className="feature-icon">📖</div>
+          <h3>Example Sentences</h3>
+          <p>Study words in context from Tatoeba sentences</p>
+          <div className="feature-badge coming-soon">Coming Soon</div>
+        </div>
+      </div>
+
+      {/* Reading & Tools Section */}
+      <div className="menu-category">
+        <h2 className="category-title">
+          <span className="category-icon">📖</span>
+          Reading & Tools
+        </h2>
+        
+        <div className="feature-card disabled">
+          <div className="feature-icon">📚</div>
+          <h3>Manga Reader</h3>
+          <p>Read manga with integrated vocabulary lookup</p>
+          <div className="feature-badge coming-soon">Coming Soon</div>
+        </div>
+
+        <div className="feature-card" onClick={onShowCardsTable}>
+          <div className="feature-icon">📊</div>
+          <h3>Cards Table</h3>
+          <p>Browse and analyze your entire card collection</p>
+          <div className="feature-badge active">Ready</div>
+        </div>
+      </div>
+
+      {/* Management Section */}
+      <div className="menu-category">
+        <h2 className="category-title">
+          <span className="category-icon">⚙️</span>
+          Management
+        </h2>
+        
+        <div className="feature-card" onClick={onShowSettings}>
+          <div className="feature-icon">🗄️</div>
+          <h3>Database Settings</h3>
+          <p>Import decks and manage your card database</p>
+          <div className="feature-badge active">Ready</div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Flashcard configuration view
+  const renderFlashcardConfig = () => (
+    <div className="config-view">
+      <button className="back-button" onClick={() => setCurrentView('main')}>
+        ← Back to Menu
+      </button>
+      
+      <h1 className="config-title">🗂️ Flashcard Study Configuration</h1>
+      
+      <div className="config-section">
+        <h2>Study Parameters</h2>
+        
+        <div className="form-group">
+          <label htmlFor="cardLimit">Card Limit</label>
+          <input
+            id="cardLimit"
+            type="number"
+            value={cardLimit}
+            onChange={handleCardLimitChange}
+            onBlur={handleCardLimitBlur}
+            max={maxCards}
+            className="form-input"
+          />
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label htmlFor="reading">📖 Reading</label>
+            <input
+              id="reading"
+              type="number"
+              value={reading}
+              onChange={handleReadingChange}
+              max={cardLimit}
+              min={0}
+              className="form-input"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="listening">🎧 Listening</label>
+            <input
+              id="listening"
+              type="number"
+              value={listening}
+              onChange={handleListeningChange}
+              max={cardLimit}
+              min={0}
+              className="form-input"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="picture">🖼️ Picture</label>
+            <input
+              id="picture"
+              type="number"
+              value={picture}
+              onChange={handlePictureChange}
+              max={cardLimit}
+              min={0}
+              className="form-input"
+            />
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={gradedMode}
+              onChange={handleGradedModeChange}
+            />
+            🎯 Enable Graded Mode
+          </label>
+        </div>
+      </div>
+
+      <div className="config-section">
+        <h2>Card Filters</h2>
+        
+        <div className="tabs">
+          <button
+            className={`tab-button ${activeTab === 'blacklist' ? 'active' : ''}`}
+            onClick={() => handleTabChange('blacklist')}
+          >
+            🚫 Blacklist
+          </button>
+          <button
+            className={`tab-button ${activeTab === 'important' ? 'active' : ''}`}
+            onClick={() => handleTabChange('important')}
+          >
+            ⭐ Important
+          </button>
+        </div>
+
+        {activeTab === 'blacklist' && (
+          <div className="tab-content">
+            <label htmlFor="blacklist">Cards to exclude from study</label>
+            <textarea
+              id="blacklist"
+              value={blacklist}
+              onChange={handleBlacklistChange}
+              placeholder="e.g., 2-10, 15, 20-25"
+            />
+          </div>
+        )}
+
+        {activeTab === 'important' && (
+          <div className="tab-content">
+            <label htmlFor="important">Priority cards to include</label>
+            <textarea
+              id="important"
+              value={important}
+              onChange={handleImportantChange}
+              placeholder="e.g., 20-40, 112, 114"
+            />
+          </div>
+        )}
+      </div>
+
+      {error && <div className="error">{error}</div>}
+
+      <button 
+        onClick={handleStartStudy} 
+        className="btn btn-primary btn-large"
+      >
+        🚀 Start Study Session
+      </button>
+    </div>
+  );
+
+  // Timed listening configuration view
+  const renderTimedListeningConfig = () => (
+    <div className="config-view">
+      <button className="back-button" onClick={() => setCurrentView('main')}>
+        ← Back to Menu
+      </button>
+      
+      <h1 className="config-title">⏱️ Timed Listening Configuration</h1>
+      
+      <div className="config-section">
+        <h2>Time Settings</h2>
+        
+        <div className="form-group">
+          <label htmlFor="cardLimit">Card Limit</label>
+          <input
+            id="cardLimit"
+            type="number"
+            value={cardLimit}
+            onChange={handleCardLimitChange}
+            max={maxCards}
+            className="form-input"
+          />
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="timeLimit">Time limit per card (seconds)</label>
+          <input
+            id="timeLimit"
+            type="number"
+            value={timeLimit}
+            onChange={handleTimeLimitChange}
+            min="1"
+            className="form-input"
+          />
+        </div>
+      </div>
+
+      {error && <div className="error">{error}</div>}
+
+      <button 
+        onClick={handleStartTimedListening} 
+        className="btn btn-warning btn-large"
+      >
+        ⏱️ Start Timed Listening
+      </button>
+    </div>
+  );
+
   return (
     <div className="menu">
       <div className="menu-container">
-        <h1>📚 Study Manager</h1>
-        
-        <div className="menu-section">
-          <h2>
-            <span>⚙️</span>
-            Study Configuration
-          </h2>
-          
-          <div className="form-group">
-            <label htmlFor="cardLimit">
-              Card Limit
-            </label>
-            <input
-              id="cardLimit"
-              type="number"
-              value={cardLimit}
-              onChange={handleCardLimitChange}
-              onBlur={handleCardLimitBlur}
-              title="Set the number of cards you want to study."
-              max={maxCards}
-              className="form-input"
-            />
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="reading">
-                📖 Reading Questions
-              </label>
-              <input
-                id="reading"
-                type="number"
-                value={reading}
-                onChange={handleReadingChange}
-                max={cardLimit}
-                min={0}
-                title="Set the number of reading questions."
-                className="form-input"
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="listening">
-                🎧 Listening Questions
-              </label>
-              <input
-                id="listening"
-                type="number"
-                value={listening}
-                onChange={handleListeningChange}
-                max={cardLimit}
-                min={0}
-                title="Set the number of listening questions."
-                className="form-input"
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="picture">
-                🖼️ Picture Questions
-              </label>
-              <input
-                id="picture"
-                type="number"
-                value={picture}
-                onChange={handlePictureChange}
-                max={cardLimit}
-                min={0}
-                title="Set the number of picture questions."
-                className="form-input"
-              />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={gradedMode}
-                onChange={handleGradedModeChange}
-                title="Enable graded mode."
-              />
-              🎯 Enable Graded Mode
-            </label>
-          </div>
-        </div>
-
-        <div className="menu-section">
-          <h2>
-            <span>🎛️</span>
-            Card Filters
-          </h2>
-          
-          <div className="tabs">
-            <button
-              className={`tab-button ${activeTab === 'blacklist' ? 'active' : ''}`}
-              onClick={() => handleTabChange('blacklist')}
-            >
-              🚫 Blacklist
-            </button>
-            <button
-              className={`tab-button ${activeTab === 'important' ? 'active' : ''}`}
-              onClick={() => handleTabChange('important')}
-            >
-              ⭐ Important
-            </button>
-          </div>
-
-          {activeTab === 'blacklist' && (
-            <div className="tab-content">
-              <label htmlFor="blacklist">
-                Cards to exclude from study
-              </label>
-              <textarea
-                id="blacklist"
-                value={blacklist}
-                onChange={handleBlacklistChange}
-                placeholder="Enter card numbers or ranges (e.g., 2-10, 15, 20-25)"
-                title="Enter card numbers or ranges to exclude from the study session."
-              />
-            </div>
-          )}
-
-          {activeTab === 'important' && (
-            <div className="tab-content">
-              <label htmlFor="important">
-                Priority cards to include
-              </label>
-              <textarea
-                id="important"
-                value={important}
-                onChange={handleImportantChange}
-                placeholder="Enter card numbers or ranges (e.g., 20-40, 112, 114)"
-                title="Enter card numbers or ranges to include in the study session."
-              />
-            </div>
-          )}
-        </div>
-
-        <div className="menu-section">
-          <h2>
-            <span>⏱️</span>
-            Timed Listening Mode
-          </h2>
-          
-          <div className="form-group">
-            <label htmlFor="timeLimit">
-              Time limit per card (seconds)
-            </label>
-            <input
-              id="timeLimit"
-              type="number"
-              value={timeLimit}
-              onChange={handleTimeLimitChange}
-              min="1"
-              title="Set the time limit per card in seconds."
-              className="form-input"
-            />
-          </div>
-        </div>
-
-        {error && <div className="error">{error}</div>}
-
-        <div className="btn-group">
-          <button 
-            onClick={handleStartStudy} 
-            className="btn btn-primary btn-large"
-            title="Start the study session with the selected settings."
-          >
-            🚀 Start Study Session
-          </button>
-          
-          <button 
-            onClick={handleStartTimedListening} 
-            className="btn btn-warning btn-large"
-            title="Start Timed Listening Mode"
-          >
-            ⏱️ Start Timed Listening
-          </button>
-          
-          <button 
-            onClick={onShowCardsTable} 
-            className="btn btn-secondary"
-            title="View all cards in table format"
-          >
-            📊 View Cards Table
-          </button>
-
-          <button 
-            onClick={onShowSettings} 
-            className="btn btn-info"
-            title="Manage database and import settings"
-          >
-            ⚙️ Database Settings
-          </button>
-        </div>
+        {currentView === 'main' && (
+          <>
+            <h1 className="menu-title">Japanese Study Hub</h1>
+            <p className="menu-subtitle">Choose a study mode or tool to get started</p>
+            {renderMainMenu()}
+          </>
+        )}
+        {currentView === 'flashcard' && renderFlashcardConfig()}
+        {currentView === 'timed' && renderTimedListeningConfig()}
       </div>
     </div>
   );
