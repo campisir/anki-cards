@@ -346,6 +346,94 @@
   }
 }
 
+/* Radio Buttons */
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.radio-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.radio-label:hover {
+  border-color: #667eea;
+  background: #f8f9fa;
+}
+
+.radio-label input[type="radio"] {
+  margin-top: 0.25rem;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.radio-label input[type="radio"]:checked + span {
+  color: #667eea;
+  font-weight: 700;
+}
+
+.radio-label span {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #333;
+}
+
+.radio-description {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 0.25rem 0 0 0;
+}
+
+.form-hint {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
+/* Info Box */
+.config-info {
+  margin: 1.5rem 0;
+}
+
+.info-box {
+  display: flex;
+  gap: 1rem;
+  background: #eff6ff;
+  border: 2px solid #3b82f6;
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.info-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.info-content h3 {
+  font-size: 1rem;
+  color: #1e40af;
+  margin: 0 0 0.5rem 0;
+  font-weight: 700;
+}
+
+.info-content p {
+  font-size: 0.9rem;
+  color: #1e3a8a;
+  margin: 0;
+  line-height: 1.5;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .menu-title {
@@ -371,6 +459,16 @@
 
   .feature-card p {
     font-size: 0.9rem;
+  }
+
+  .radio-label {
+    flex-direction: row;
+  }
+
+  .info-box {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
   }
 }
 

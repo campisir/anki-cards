@@ -1,0 +1,486 @@
+/* Example Sentences Study Component */
+.example-sentences {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.sentence-container {
+  width: 100%;
+  max-width: 900px;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.sentence-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.btn-exit {
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid white;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.btn-exit:hover {
+  background: white;
+  color: #667eea;
+}
+
+.sentence-progress {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.progress-text {
+  color: white;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: white;
+  transition: width 0.3s ease;
+  border-radius: 10px;
+}
+
+.study-mode-badge {
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid white;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Main Content */
+.sentence-content {
+  padding: 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  min-height: 400px;
+}
+
+.sentence-card {
+  background: #f8f9fa;
+  border-radius: 16px;
+  padding: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.sentence-text {
+  font-size: 2rem;
+  line-height: 1.6;
+  text-align: center;
+  color: #333;
+  font-weight: 500;
+}
+
+.sentence-text.japanese {
+  font-family: 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
+}
+
+.sentence-hidden {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  min-height: 200px;
+}
+
+.hidden-icon {
+  font-size: 4rem;
+  opacity: 0.5;
+}
+
+.hidden-text {
+  font-size: 1.2rem;
+  color: #666;
+  margin: 0;
+}
+
+/* Word Analysis */
+.word-analysis {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  padding: 1rem;
+  background: white;
+  border-radius: 12px;
+  border: 2px solid #e2e8f0;
+}
+
+.analysis-stat {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.stat-label {
+  font-weight: 600;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.stat-value {
+  font-weight: 700;
+  color: #667eea;
+  font-size: 1.1rem;
+}
+
+/* Known Words Display */
+.known-words-box {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 2px solid #f59e0b;
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.known-words-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.known-words-header:hover {
+  opacity: 0.8;
+}
+
+.known-words-icon {
+  font-size: 1.2rem;
+}
+
+.known-words-title {
+  font-weight: 700;
+  color: #92400e;
+  font-size: 0.9rem;
+  flex: 1;
+}
+
+.expand-icon {
+  font-size: 0.8rem;
+  color: #92400e;
+  transition: transform 0.3s ease;
+  margin-left: auto;
+}
+
+.expand-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.known-words-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.known-word-badge {
+  background: white;
+  color: #92400e;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  font-family: 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
+  border: 2px solid #f59e0b;
+  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
+  transition: all 0.2s ease;
+}
+
+.known-word-badge:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(245, 158, 11, 0.3);
+}
+
+/* Audio Controls */
+.audio-controls {
+  display: flex;
+  justify-content: center;
+}
+
+.btn-audio {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.btn-audio:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.btn-audio:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-audio-large {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 16px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 1.2rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.btn-audio-large:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.5);
+}
+
+/* Translation */
+.sentence-translation {
+  background: white;
+  border: 2px solid #10b981;
+  border-radius: 12px;
+  padding: 1.5rem;
+  animation: slideIn 0.3s ease;
+}
+
+.translation-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #10b981;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.5rem;
+}
+
+.translation-text {
+  font-size: 1.3rem;
+  color: #333;
+  line-height: 1.6;
+}
+
+/* Action Buttons */
+.sentence-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.btn-reveal {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  padding: 1rem 3rem;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-reveal:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+}
+
+.nav-buttons {
+  display: flex;
+  gap: 1rem;
+}
+
+.btn-nav {
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  border: none;
+}
+
+.btn-nav:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-nav:not(.btn-primary) {
+  background: #e2e8f0;
+  color: #64748b;
+}
+
+.btn-nav:not(.btn-primary):hover:not(:disabled) {
+  background: #cbd5e1;
+}
+
+/* Footer */
+.sentence-footer {
+  background: #f8f9fa;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.sentence-info {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.info-item {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+/* No Sentences State */
+.no-sentences {
+  text-align: center;
+  padding: 3rem;
+  background: white;
+  border-radius: 20px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.no-sentences h2 {
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.no-sentences p {
+  color: #666;
+  margin-bottom: 2rem;
+  font-size: 1.1rem;
+}
+
+/* Animations */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .example-sentences {
+    padding: 1rem;
+  }
+
+  .sentence-content {
+    padding: 2rem 1.5rem;
+  }
+
+  .sentence-card {
+    padding: 1.5rem;
+  }
+
+  .sentence-text {
+    font-size: 1.5rem;
+  }
+
+  .translation-text {
+    font-size: 1.1rem;
+  }
+
+  .sentence-header {
+    flex-wrap: wrap;
+  }
+
+  .study-mode-badge {
+    width: 100%;
+    text-align: center;
+  }
+
+  .word-analysis {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  .nav-buttons {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .btn-nav {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .sentence-text {
+    font-size: 1.3rem;
+  }
+
+  .btn-reveal {
+    padding: 0.875rem 2rem;
+    font-size: 1rem;
+  }
+
+  .sentence-info {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: center;
+  }
+}

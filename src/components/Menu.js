@@ -4,6 +4,7 @@ import './Menu.css';
 function Menu({
   onStartStudy,
   onStartTimedListening,
+  onStartExampleSentences,
   onShowCardsTable,
   onShowSettings,
   cardLimit: initialCardLimit,
@@ -16,7 +17,7 @@ function Menu({
   maxCards,
   originalCards,
 }) {
-  const [currentView, setCurrentView] = useState('main'); // 'main', 'flashcard', 'timed'
+  const [currentView, setCurrentView] = useState('main'); // 'main', 'flashcard', 'timed', 'sentences'
   const [cardLimit, setCardLimit] = useState(initialCardLimit);
   const [reading, setReading] = useState(initialReading);
   const [listening, setListening] = useState(initialListening);
@@ -27,6 +28,7 @@ function Menu({
   const [important, setImportant] = useState(initialImportant);
   const [gradedMode, setGradedMode] = useState(initialGradedMode);
   const [timeLimit, setTimeLimit] = useState(2);
+  const [sentenceStudyType, setSentenceStudyType] = useState('reading'); // 'reading', 'listening', 'both'
 
   useEffect(() => {
     setCardLimit(initialCardLimit);
@@ -78,6 +80,15 @@ function Menu({
       return;
     }
     onStartTimedListening(listeningCards, timeLimit);
+  };
+
+  // Handler for Example Sentences
+  const handleStartExampleSentences = () => {
+    if (cardLimit < 1) {
+      setError('Card limit must be at least 1.');
+      return;
+    }
+    onStartExampleSentences(cardLimit, sentenceStudyType);
   };
 
   const parseCardNumbers = (input) => {
@@ -168,11 +179,11 @@ function Menu({
           <div className="feature-badge active">Ready</div>
         </div>
 
-        <div className="feature-card disabled">
+        <div className="feature-card" onClick={() => setCurrentView('sentences')}>
           <div className="feature-icon">📖</div>
           <h3>Example Sentences</h3>
           <p>Study words in context from Tatoeba sentences</p>
-          <div className="feature-badge coming-soon">Coming Soon</div>
+          <div className="feature-badge active">Ready</div>
         </div>
       </div>
 
@@ -395,6 +406,99 @@ function Menu({
     </div>
   );
 
+  // Example sentences configuration view
+  const renderExampleSentencesConfig = () => (
+    <div className="config-view">
+      <button className="back-button" onClick={() => setCurrentView('main')}>
+        ← Back to Menu
+      </button>
+      
+      <h1 className="config-title">📖 Example Sentences Configuration</h1>
+      
+      <div className="config-section">
+        <h2>Study Parameters</h2>
+        
+        <div className="form-group">
+          <label htmlFor="cardLimit">Card Limit (Words to Include)</label>
+          <input
+            id="cardLimit"
+            type="number"
+            value={cardLimit}
+            onChange={handleCardLimitChange}
+            max={maxCards}
+            className="form-input"
+          />
+          <p className="form-hint">
+            Sentences will contain words from cards 1 to {cardLimit}
+          </p>
+        </div>
+
+        <div className="form-group">
+          <label>Study Type</label>
+          <div className="radio-group">
+            <label className="radio-label">
+              <input
+                type="radio"
+                name="sentenceStudyType"
+                value="reading"
+                checked={sentenceStudyType === 'reading'}
+                onChange={(e) => setSentenceStudyType(e.target.value)}
+              />
+              <span>📖 Reading Only</span>
+              <p className="radio-description">See the sentence, reveal translation</p>
+            </label>
+
+            <label className="radio-label">
+              <input
+                type="radio"
+                name="sentenceStudyType"
+                value="listening"
+                checked={sentenceStudyType === 'listening'}
+                onChange={(e) => setSentenceStudyType(e.target.value)}
+              />
+              <span>🎧 Listening Only</span>
+              <p className="radio-description">Hear the sentence, reveal text and translation</p>
+            </label>
+
+            <label className="radio-label">
+              <input
+                type="radio"
+                name="sentenceStudyType"
+                value="both"
+                checked={sentenceStudyType === 'both'}
+                onChange={(e) => setSentenceStudyType(e.target.value)}
+              />
+              <span>📖🎧 Both</span>
+              <p className="radio-description">Mix of reading and listening</p>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div className="config-info">
+        <div className="info-box">
+          <div className="info-icon">ℹ️</div>
+          <div className="info-content">
+            <h3>About Example Sentences</h3>
+            <p>
+              Example sentences are fetched from Tatoeba.org, a collaborative database of sentences and translations. 
+              We'll find sentences containing words you've learned, helping you practice vocabulary in context.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {error && <div className="error">{error}</div>}
+
+      <button 
+        onClick={handleStartExampleSentences} 
+        className="btn btn-primary btn-large"
+      >
+        📖 Start Example Sentences Study
+      </button>
+    </div>
+  );
+
   return (
     <div className="menu">
       <div className="menu-container">
@@ -407,6 +511,7 @@ function Menu({
         )}
         {currentView === 'flashcard' && renderFlashcardConfig()}
         {currentView === 'timed' && renderTimedListeningConfig()}
+        {currentView === 'sentences' && renderExampleSentencesConfig()}
       </div>
     </div>
   );

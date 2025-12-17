@@ -3,10 +3,12 @@ import Menu from './components/Menu';
 import Study from './components/Study';
 import CardsTable from './components/CardsTable';
 import TimedListening from './components/TimedListening';
+import ExampleSentences from './components/ExampleSentences';
 import Settings from './components/Settings';
 import { getAllCards } from './utils/cardService';
 import { isDatabaseInitialized, importAnkiDeck } from './utils/ankiImportService';
 import { getMetadata } from './utils/cardService';
+import { getExampleSentencesForStudy } from './utils/tatoebaService';
 import './App.css';
 
 // Utility function to strip HTML tags from a string
@@ -35,6 +37,10 @@ function App() {
   const [timedListeningMode, setTimedListeningMode] = useState(false);
   const [timedListeningCards, setTimedListeningCards] = useState([]);
   const [timedListeningTimeLimit, setTimedListeningTimeLimit] = useState(10);
+  const [exampleSentencesMode, setExampleSentencesMode] = useState(false);
+  const [exampleSentences, setExampleSentences] = useState([]);
+  const [sentenceStudyType, setSentenceStudyType] = useState('reading');
+  const [loadingSentences, setLoadingSentences] = useState(false);
   const [dbInitialized, setDbInitialized] = useState(false);
 
   // Cleanup blob URLs on unmount to prevent memory leaks
@@ -53,6 +59,36 @@ function App() {
     setTimedListeningCards(cardsForListening);
     setTimedListeningTimeLimit(timeLimit);
     setTimedListeningMode(true);
+  };
+
+  // Define onStartExampleSentences callback
+  const handleStartExampleSentences = async (cardLimit, studyType) => {
+    setLoadingSentences(true);
+    setSentenceStudyType(studyType);
+    
+    try {
+      console.log(`Fetching example sentences for ${cardLimit} cards...`);
+      const sentences = await getExampleSentencesForStudy(originalCards, cardLimit, {
+        limit: 100,
+        wordCount: '-15', // Max 15 words
+        hasAudio: studyType === 'listening' || studyType === 'both'
+      });
+      
+      if (sentences.length === 0) {
+        alert('Could not find any sentences matching your known words. Try increasing the card limit or adjusting filters.');
+        setLoadingSentences(false);
+        return;
+      }
+      
+      console.log(`Found ${sentences.length} example sentences`);
+      setExampleSentences(sentences);
+      setExampleSentencesMode(true);
+      setLoadingSentences(false);
+    } catch (error) {
+      console.error('Error fetching example sentences:', error);
+      alert('Failed to fetch example sentences from Tatoeba. Please check your internet connection and try again.');
+      setLoadingSentences(false);
+    }
   };
 
   useEffect(() => {
@@ -260,6 +296,8 @@ function App() {
     setShowTable(false);
     setShowSettings(false);
     setTimedListeningMode(false);
+    setExampleSentencesMode(false);
+    setExampleSentences([]);
   };
 
   const handleShowSettings = () => {
@@ -325,15 +363,22 @@ function App() {
 
   return (
     <div className="App">
-      {loading ? (
+      {loading || loadingSentences ? (
         <div className="loading">
-          <p>Loading Cards...</p>
+          <p>{loadingSentences ? 'Fetching Example Sentences from Tatoeba...' : 'Loading Cards...'}</p>
           <div className="loading-bar">
             <div className="loading-progress"></div>
           </div>
         </div>
       ) : showSettings ? (
         <Settings onBackToMenu={handleSettingsClosed} />
+      ) : exampleSentencesMode ? (
+        <ExampleSentences
+          sentences={exampleSentences}
+          studyType={sentenceStudyType}
+          onExit={handleBackToMenu}
+          mediaFiles={mediaFiles}
+        />
       ) : timedListeningMode ? (
         <TimedListening
           cards={timedListeningCards}
@@ -363,6 +408,7 @@ function App() {
           onStartStudy={handleStartStudy}
           onShowCardsTable={handleShowCardsTable}
           onStartTimedListening={handleStartTimedListening}
+          onStartExampleSentences={handleStartExampleSentences}
           onShowSettings={handleShowSettings}
           cardLimit={cardLimit}
           reading={reading}
