@@ -31,6 +31,8 @@ function Menu({
   const [sentenceStudyType, setSentenceStudyType] = useState('reading'); // 'reading', 'listening', 'both'
   const [tokenizerType, setTokenizerType] = useState('tiny'); // 'tiny' or 'kuromoji'
   const [sentenceSource, setSentenceSource] = useState('tatoeba'); // 'tatoeba' or 'immersionkit'
+  const [minCoverage, setMinCoverage] = useState(0); // 0-100
+  const [maxCoverage, setMaxCoverage] = useState(100); // 0-100
 
   useEffect(() => {
     setCardLimit(initialCardLimit);
@@ -90,7 +92,11 @@ function Menu({
       setError('Card limit must be at least 1.');
       return;
     }
-    onStartExampleSentences(cardLimit, sentenceStudyType, tokenizerType, sentenceSource);
+    if (minCoverage > maxCoverage) {
+      setError('Minimum coverage cannot be greater than maximum coverage.');
+      return;
+    }
+    onStartExampleSentences(cardLimit, sentenceStudyType, tokenizerType, sentenceSource, minCoverage, maxCoverage);
   };
 
   const parseCardNumbers = (input) => {
@@ -474,6 +480,49 @@ function Menu({
               <p className="radio-description">Mix of reading and listening</p>
             </label>
           </div>
+        </div>
+
+        <div className="form-group">
+          <label>Coverage Filter (% of words you know)</label>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <div style={{ flex: 1 }}>
+              <label htmlFor="minCoverage" style={{ fontSize: '0.9rem', display: 'block', marginBottom: '0.5rem' }}>
+                Minimum: {minCoverage}%
+              </label>
+              <input
+                id="minCoverage"
+                type="range"
+                min="0"
+                max="100"
+                value={minCoverage}
+                onChange={(e) => setMinCoverage(Number(e.target.value))}
+                className="form-input"
+                style={{ width: '100%' }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label htmlFor="maxCoverage" style={{ fontSize: '0.9rem', display: 'block', marginBottom: '0.5rem' }}>
+                Maximum: {maxCoverage}%
+              </label>
+              <input
+                id="maxCoverage"
+                type="range"
+                min="0"
+                max="100"
+                value={maxCoverage}
+                onChange={(e) => setMaxCoverage(Number(e.target.value))}
+                className="form-input"
+                style={{ width: '100%' }}
+              />
+            </div>
+          </div>
+          <p className="form-hint">
+            {minCoverage === 0 && maxCoverage === 100 
+              ? 'Showing all sentences (no filter)'
+              : minCoverage === maxCoverage
+              ? `Showing sentences with exactly ${minCoverage}% coverage`
+              : `Showing sentences with ${minCoverage}%-${maxCoverage}% coverage`}
+          </p>
         </div>
 
         <div className="form-group">

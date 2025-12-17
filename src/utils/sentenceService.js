@@ -49,7 +49,18 @@ export const getExampleSentencesForStudy = async (cards, cardLimit, options = {}
     
     console.log(`Filtered to ${filtered.length} sentences containing known words`);
     
-    return filtered;
+    // Apply coverage filter if specified
+    const minCoverage = options.minCoverage !== undefined ? options.minCoverage : 0;
+    const maxCoverage = options.maxCoverage !== undefined ? options.maxCoverage : 100;
+    
+    const coverageFiltered = filtered.filter(sentence => {
+      const coverage = sentence.wordAnalysis.coverage;
+      return coverage >= minCoverage && coverage <= maxCoverage;
+    });
+    
+    console.log(`After coverage filter (${minCoverage}%-${maxCoverage}%): ${coverageFiltered.length} sentences`);
+    
+    return coverageFiltered;
   } catch (error) {
     console.error('Error getting example sentences:', error);
     throw error;

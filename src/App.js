@@ -62,7 +62,7 @@ function App() {
   };
 
   // Define onStartExampleSentences callback
-  const handleStartExampleSentences = async (cardLimit, studyType, tokenizer, source) => {
+  const handleStartExampleSentences = async (cardLimit, studyType, tokenizer, source, minCoverage, maxCoverage) => {
     setLoadingSentences(true);
     setSentenceStudyType(studyType);
     
@@ -73,7 +73,9 @@ function App() {
         wordCount: '-15', // Max 15 words
         hasAudio: studyType === 'listening' || studyType === 'both',
         tokenizer: tokenizer,
-        source: source
+        source: source,
+        minCoverage: minCoverage,
+        maxCoverage: maxCoverage
       });
       
       if (sentences.length === 0) {

@@ -271,8 +271,9 @@ export const analyzeSentenceWords = async (sentenceText, knownWords, cards, toke
     }
   });
   
-  // Particle pattern for identifying omitted tokens
-  const particlePattern = /^[はがをにへとでやのもからまでより]$/;
+  // Expanded particle/grammatical pattern for identifying omitted tokens
+  // Includes common particles, connectors, and grammatical elements
+  const particlePattern = /^[はがをにへとでやのもからまでよりてたばだねよわかなんじゃ]$/;
   
   const found = [];
   const unknown = [];
