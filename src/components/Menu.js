@@ -30,6 +30,7 @@ function Menu({
   const [timeLimit, setTimeLimit] = useState(2);
   const [sentenceStudyType, setSentenceStudyType] = useState('reading'); // 'reading', 'listening', 'both'
   const [tokenizerType, setTokenizerType] = useState('tiny'); // 'tiny' or 'kuromoji'
+  const [sentenceSource, setSentenceSource] = useState('tatoeba'); // 'tatoeba' or 'immersionkit'
 
   useEffect(() => {
     setCardLimit(initialCardLimit);
@@ -89,7 +90,7 @@ function Menu({
       setError('Card limit must be at least 1.');
       return;
     }
-    onStartExampleSentences(cardLimit, sentenceStudyType, tokenizerType);
+    onStartExampleSentences(cardLimit, sentenceStudyType, tokenizerType, sentenceSource);
   };
 
   const parseCardNumbers = (input) => {
@@ -476,6 +477,35 @@ function Menu({
         </div>
 
         <div className="form-group">
+          <label>Sentence Source</label>
+          <div className="radio-group">
+            <label className="radio-label">
+              <input
+                type="radio"
+                name="sentenceSource"
+                value="tatoeba"
+                checked={sentenceSource === 'tatoeba'}
+                onChange={(e) => setSentenceSource(e.target.value)}
+              />
+              <span>📝 Tatoeba</span>
+              <p className="radio-description">User-generated sentences with translations</p>
+            </label>
+
+            <label className="radio-label">
+              <input
+                type="radio"
+                name="sentenceSource"
+                value="immersionkit"
+                checked={sentenceSource === 'immersionkit'}
+                onChange={(e) => setSentenceSource(e.target.value)}
+              />
+              <span>🎬 Immersion Kit</span>
+              <p className="radio-description">Real sentences from anime, dramas, and games</p>
+            </label>
+          </div>
+        </div>
+
+        <div className="form-group">
           <label>Tokenizer (Word Splitting)</label>
           <div className="radio-group">
             <label className="radio-label">
@@ -509,10 +539,13 @@ function Menu({
         <div className="info-box">
           <div className="info-icon">ℹ️</div>
           <div className="info-content">
-            <h3>About Example Sentences</h3>
+            <h3>About Sentence Sources</h3>
             <p>
-              Example sentences are fetched from Tatoeba.org, a collaborative database of sentences and translations. 
-              We'll find sentences containing words you've learned, helping you practice vocabulary in context.
+              <strong>Tatoeba:</strong> Community-contributed sentences with direct translations. Great variety, may include some unnatural phrasing.
+            </p>
+            <p>
+              <strong>Immersion Kit:</strong> Sentences extracted from anime, dramas, movies, and games. 
+              More natural, real-world Japanese with native audio from actual shows.
             </p>
           </div>
         </div>

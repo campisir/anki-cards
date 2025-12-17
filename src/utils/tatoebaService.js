@@ -120,7 +120,8 @@ export const extractJapaneseWordsTiny = (text) => {
     .filter(token => token.length > 0)
     .map(token => ({
       surface: token,
-      basic: token  // TinySegmenter doesn't provide dictionary forms
+      basic: token,  // TinySegmenter doesn't provide dictionary forms
+      contentVerbs: [token]
     }));
 };
 
@@ -159,6 +160,7 @@ export const extractJapaneseWordsKuromoji = async (text) => {
       // Combine them
       let combinedSurface = token.surface_form + nextToken.surface_form;
       let combinedBasic = token.basic_form;
+      let contentVerbs = [token.basic_form]; // Track content verbs for matching
       let skip = 1;
       
       // Keep combining if there are more auxiliaries (ます, た, れる, etc.)
@@ -171,6 +173,11 @@ export const extractJapaneseWordsKuromoji = async (text) => {
         
         if (isAux) {
           combinedSurface += auxToken.surface_form;
+          // For compound verbs (e.g., し始める), also track the auxiliary verb's basic form
+          if (auxToken.pos === '動詞' && auxToken.basic_form) {
+            combinedBasic = token.basic_form + auxToken.basic_form;
+            contentVerbs.push(auxToken.basic_form);
+          }
           skip++;
           j++;
         } else {
@@ -180,14 +187,16 @@ export const extractJapaneseWordsKuromoji = async (text) => {
       
       combinedTokens.push({
         surface: combinedSurface,
-        basic: combinedBasic || combinedSurface
+        basic: combinedBasic || combinedSurface,
+        contentVerbs: contentVerbs // Array of verbs to match against
       });
       
       i += skip + 1;
     } else {
       combinedTokens.push({
         surface: token.surface_form,
-        basic: token.basic_form || token.surface_form
+        basic: token.basic_form || token.surface_form,
+        contentVerbs: [token.basic_form || token.surface_form]
       });
       i++;
     }
@@ -273,6 +282,7 @@ export const analyzeSentenceWords = async (sentenceText, knownWords, cards, toke
   allTokens.forEach(tokenObj => {
     const surface = tokenObj.surface;
     const basic = tokenObj.basic;
+    const contentVerbs = tokenObj.contentVerbs || [basic];
     const normalizedSurface = surface.toLowerCase().trim();
     const normalizedBasic = basic.toLowerCase().trim();
     let status;
@@ -281,15 +291,35 @@ export const analyzeSentenceWords = async (sentenceText, knownWords, cards, toke
     if (particlePattern.test(surface)) {
       // Particle or common omitted token
       status = 'omitted';
-    } else if (knownWordsMap.has(normalizedBasic) || knownWordsMap.has(normalizedSurface)) {
-      // Match either the dictionary form or surface form
-      status = 'known';
-      matchedCard = knownWordsMap.get(normalizedBasic) || knownWordsMap.get(normalizedSurface);
-      found.push(surface);
     } else {
-      // Unknown word
-      status = 'unknown';
-      unknown.push(surface);
+      // Try to match surface form, basic form, or any content verbs
+      let matched = false;
+      
+      if (knownWordsMap.has(normalizedSurface)) {
+        matched = true;
+        matchedCard = knownWordsMap.get(normalizedSurface);
+      } else if (knownWordsMap.has(normalizedBasic)) {
+        matched = true;
+        matchedCard = knownWordsMap.get(normalizedBasic);
+      } else {
+        // Check content verbs (for compound verbs like し始める)
+        for (const verb of contentVerbs) {
+          const normalizedVerb = verb.toLowerCase().trim();
+          if (knownWordsMap.has(normalizedVerb)) {
+            matched = true;
+            matchedCard = knownWordsMap.get(normalizedVerb);
+            break;
+          }
+        }
+      }
+      
+      if (matched) {
+        status = 'known';
+        found.push(surface);
+      } else {
+        status = 'unknown';
+        unknown.push(surface);
+      }
     }
     
     allTokensWithStatus.push({ 

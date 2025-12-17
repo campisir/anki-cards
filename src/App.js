@@ -8,7 +8,7 @@ import Settings from './components/Settings';
 import { getAllCards } from './utils/cardService';
 import { isDatabaseInitialized, importAnkiDeck } from './utils/ankiImportService';
 import { getMetadata } from './utils/cardService';
-import { getExampleSentencesForStudy } from './utils/tatoebaService';
+import { getExampleSentencesForStudy } from './utils/sentenceService';
 import './App.css';
 
 // Utility function to strip HTML tags from a string
@@ -62,17 +62,18 @@ function App() {
   };
 
   // Define onStartExampleSentences callback
-  const handleStartExampleSentences = async (cardLimit, studyType, tokenizer) => {
+  const handleStartExampleSentences = async (cardLimit, studyType, tokenizer, source) => {
     setLoadingSentences(true);
     setSentenceStudyType(studyType);
     
     try {
-      console.log(`Fetching example sentences for ${cardLimit} cards...`);
+      console.log(`Fetching example sentences for ${cardLimit} cards from ${source}...`);
       const sentences = await getExampleSentencesForStudy(originalCards, cardLimit, {
         limit: 100,
         wordCount: '-15', // Max 15 words
         hasAudio: studyType === 'listening' || studyType === 'both',
-        tokenizer: tokenizer
+        tokenizer: tokenizer,
+        source: source
       });
       
       if (sentences.length === 0) {
