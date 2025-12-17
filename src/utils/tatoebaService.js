@@ -2,7 +2,10 @@
  * Service for fetching example sentences from Tatoeba API
  */
 
+import TinySegmenter from 'tiny-segmenter';
+
 const TATOEBA_API_BASE = 'https://api.tatoeba.org/unstable';
+const segmenter = new TinySegmenter();
 
 /**
  * Search for Japanese sentences with English translations
@@ -79,83 +82,65 @@ export const getAudioFile = async (audioId) => {
 };
 
 /**
- * Extract Japanese words from a sentence (basic tokenization)
- * This is a simple implementation - you might want to use a proper tokenizer
+ * Extract Japanese words from a sentence using proper tokenization
  * @param {string} text - Japanese sentence
- * @returns {Array<string>} Array of potential words
+ * @returns {Array<string>} Array of tokenized words
  */
 export const extractJapaneseWords = (text) => {
-  // Remove punctuation and spaces
+  // Remove common punctuation but keep the text structure
   const cleaned = text.replace(/[。、！？\s]/g, '');
   
-  // For now, return all possible substrings (2-4 characters)
-  // In a real implementation, you'd use MeCab or similar tokenizer
-  const words = new Set();
+  // Use TinySegmenter to tokenize the sentence
+  const tokens = segmenter.segment(cleaned);
   
-  for (let i = 0; i < cleaned.length; i++) {
-    for (let len = 1; len <= Math.min(4, cleaned.length - i); len++) {
-      words.add(cleaned.substring(i, i + len));
-    }
-  }
+  // Filter out empty tokens and single character particles
+  const meaningfulTokens = tokens.filter(token => 
+    token.length > 0 && 
+    !/^[はがをにへとでやのもからまでより]$/.test(token) // Common single-char particles
+  );
   
-  return Array.from(words);
+  return meaningfulTokens;
 };
 
 /**
- * Check if a sentence contains only known words
+ * Check if a sentence contains known words using proper tokenization
  * @param {string} sentenceText - The Japanese sentence text
  * @param {Array<string>} knownWords - Array of known words/kanji from deck
  * @returns {Object} { containsOnly: boolean, knownWords: Array, unknownWords: Array }
  */
 export const analyzeSentenceWords = (sentenceText, knownWords) => {
-  // Clean the sentence
-  const cleaned = sentenceText.replace(/[。、！？\s]/g, '');
+  // Tokenize the sentence into words
+  const tokens = extractJapaneseWords(sentenceText);
   
-  // Sort known words by length (longest first) to prioritize longer matches
-  const sortedKnownWords = [...knownWords].sort((a, b) => b.length - a.length);
+  // Create a set of known words for fast lookup (case-insensitive)
+  const knownSet = new Set(knownWords.map(w => w.toLowerCase().trim()));
   
   const found = [];
-  const matchedPositions = new Set();
+  const unknown = [];
   
-  // Find all occurrences of known words in the sentence
-  sortedKnownWords.forEach(word => {
-    let startIndex = 0;
-    while (true) {
-      const index = cleaned.indexOf(word, startIndex);
-      if (index === -1) break;
-      
-      // Check if this position overlaps with already matched positions
-      let overlaps = false;
-      for (let i = index; i < index + word.length; i++) {
-        if (matchedPositions.has(i)) {
-          overlaps = true;
-          break;
-        }
-      }
-      
-      // If no overlap, mark this as a match
-      if (!overlaps) {
-        found.push(word);
-        // Mark all positions of this word as matched
-        for (let i = index; i < index + word.length; i++) {
-          matchedPositions.add(i);
-        }
-      }
-      
-      startIndex = index + 1;
+  // Check each token against known words (exact match only)
+  tokens.forEach(token => {
+    const normalizedToken = token.toLowerCase().trim();
+    if (knownSet.has(normalizedToken)) {
+      // Exact match with a word from deck
+      found.push(token);
+    } else {
+      // Not a known word
+      unknown.push(token);
     }
   });
   
-  // Remove duplicates and return
+  // Remove duplicates
   const uniqueFound = [...new Set(found)];
+  const uniqueUnknown = [...new Set(unknown)];
   
-  // Calculate coverage
-  const coverage = cleaned.length > 0 ? (matchedPositions.size / cleaned.length) * 100 : 0;
+  // Calculate coverage (percentage of tokens that are known)
+  const coverage = tokens.length > 0 ? (uniqueFound.length / tokens.length) * 100 : 0;
   
   return {
-    containsOnly: matchedPositions.size === cleaned.length && cleaned.length > 0,
+    containsOnly: uniqueUnknown.length === 0 && tokens.length > 0,
     knownWords: uniqueFound,
-    unknownWords: [], // We could implement this but it's complex without proper tokenization
+    unknownWords: uniqueUnknown,
     coverage: coverage
   };
 };
