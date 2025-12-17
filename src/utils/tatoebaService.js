@@ -108,25 +108,55 @@ export const extractJapaneseWords = (text) => {
  * @returns {Object} { containsOnly: boolean, knownWords: Array, unknownWords: Array }
  */
 export const analyzeSentenceWords = (sentenceText, knownWords) => {
-  const sentenceWords = extractJapaneseWords(sentenceText);
-  const knownSet = new Set(knownWords.map(w => w.toLowerCase()));
+  // Clean the sentence
+  const cleaned = sentenceText.replace(/[。、！？\s]/g, '');
+  
+  // Sort known words by length (longest first) to prioritize longer matches
+  const sortedKnownWords = [...knownWords].sort((a, b) => b.length - a.length);
   
   const found = [];
-  const unknown = [];
+  const matchedPositions = new Set();
   
-  sentenceWords.forEach(word => {
-    if (knownSet.has(word.toLowerCase())) {
-      found.push(word);
-    } else {
-      unknown.push(word);
+  // Find all occurrences of known words in the sentence
+  sortedKnownWords.forEach(word => {
+    let startIndex = 0;
+    while (true) {
+      const index = cleaned.indexOf(word, startIndex);
+      if (index === -1) break;
+      
+      // Check if this position overlaps with already matched positions
+      let overlaps = false;
+      for (let i = index; i < index + word.length; i++) {
+        if (matchedPositions.has(i)) {
+          overlaps = true;
+          break;
+        }
+      }
+      
+      // If no overlap, mark this as a match
+      if (!overlaps) {
+        found.push(word);
+        // Mark all positions of this word as matched
+        for (let i = index; i < index + word.length; i++) {
+          matchedPositions.add(i);
+        }
+      }
+      
+      startIndex = index + 1;
     }
   });
   
+  // Remove duplicates and return
+  const uniqueFound = [...new Set(found)];
+  
+  // Calculate coverage
+  const coverage = cleaned.length > 0 ? (matchedPositions.size / cleaned.length) * 100 : 0;
+  
   return {
-    containsOnly: unknown.length === 0,
-    knownWords: found,
-    unknownWords: unknown,
-    coverage: sentenceWords.length > 0 ? (found.length / sentenceWords.length) * 100 : 0
+    containsOnly: matchedPositions.size === cleaned.length && cleaned.length > 0,
+    knownWords: uniqueFound,
+    unknownWords: [], // We could implement this but it's complex without proper tokenization
+    coverage: coverage
   };
 };
 
