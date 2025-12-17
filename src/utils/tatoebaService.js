@@ -109,39 +109,57 @@ export const extractJapaneseWords = (text) => {
  * @returns {Object} { containsOnly: boolean, knownWords: Array, unknownWords: Array }
  */
 export const analyzeSentenceWords = (sentenceText, knownWords) => {
-  // Tokenize the sentence into words
-  const tokens = extractJapaneseWords(sentenceText);
+  // Get all tokens including particles
+  const cleaned = sentenceText.replace(/[。、！？\s]/g, '');
+  const allTokens = segmenter.segment(cleaned).filter(t => t.length > 0);
   
   // Create a set of known words for fast lookup (case-insensitive)
   const knownSet = new Set(knownWords.map(w => w.toLowerCase().trim()));
   
+  // Particle pattern for identifying omitted tokens
+  const particlePattern = /^[はがをにへとでやのもからまでより]$/;
+  
   const found = [];
   const unknown = [];
+  const allTokensWithStatus = [];
   
-  // Check each token against known words (exact match only)
-  tokens.forEach(token => {
+  // Check each token and assign status
+  allTokens.forEach(token => {
     const normalizedToken = token.toLowerCase().trim();
-    if (knownSet.has(normalizedToken)) {
+    let status;
+    
+    if (particlePattern.test(token)) {
+      // Particle or common omitted token
+      status = 'omitted';
+    } else if (knownSet.has(normalizedToken)) {
       // Exact match with a word from deck
+      status = 'known';
       found.push(token);
     } else {
-      // Not a known word
+      // Unknown word
+      status = 'unknown';
       unknown.push(token);
     }
+    
+    allTokensWithStatus.push({ token, status });
   });
   
-  // Remove duplicates
+  // Remove duplicates from found/unknown lists
   const uniqueFound = [...new Set(found)];
   const uniqueUnknown = [...new Set(unknown)];
   
-  // Calculate coverage (percentage of tokens that are known)
-  const coverage = tokens.length > 0 ? (uniqueFound.length / tokens.length) * 100 : 0;
+  // Calculate coverage (percentage of meaningful tokens that are known)
+  const meaningfulTokens = allTokensWithStatus.filter(t => t.status !== 'omitted');
+  const coverage = meaningfulTokens.length > 0 
+    ? (uniqueFound.length / meaningfulTokens.length) * 100 
+    : 0;
   
   return {
-    containsOnly: uniqueUnknown.length === 0 && tokens.length > 0,
+    containsOnly: uniqueUnknown.length === 0 && meaningfulTokens.length > 0,
     knownWords: uniqueFound,
     unknownWords: uniqueUnknown,
-    coverage: coverage
+    coverage: coverage,
+    allTokens: allTokensWithStatus
   };
 };
 

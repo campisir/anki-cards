@@ -167,28 +167,44 @@ function ExampleSentences({
                   </div>
                 )}
 
-                {/* Known Words Display */}
-                {currentSentence.wordAnalysis && currentSentence.wordAnalysis.knownWords.length > 0 && (
+                {/* Tokenized Words Display */}
+                {currentSentence.wordAnalysis && currentSentence.wordAnalysis.allTokens && (
                   <div className="known-words-box">
                     <div 
                       className="known-words-header"
                       onClick={() => setShowKnownWords(!showKnownWords)}
                     >
-                      <span className="known-words-icon">✨</span>
+                      <span className="known-words-icon">🔤</span>
                       <span className="known-words-title">
-                        Words you should know ({currentSentence.wordAnalysis.knownWords.length})
+                        Sentence Breakdown ({currentSentence.wordAnalysis.allTokens.length} tokens)
                       </span>
                       <span className={`expand-icon ${showKnownWords ? 'expanded' : ''}`}>
                         ▼
                       </span>
                     </div>
                     {showKnownWords && (
-                      <div className="known-words-list">
-                        {currentSentence.wordAnalysis.knownWords.map((word, index) => (
-                          <span key={index} className="known-word-badge">
-                            {word}
+                      <div>
+                        <div className="token-legend">
+                          <span className="legend-item">
+                            <span className="legend-badge known">Known</span>
                           </span>
-                        ))}
+                          <span className="legend-item">
+                            <span className="legend-badge unknown">Unknown</span>
+                          </span>
+                          <span className="legend-item">
+                            <span className="legend-badge omitted">Particle/Other</span>
+                          </span>
+                        </div>
+                        <div className="known-words-list">
+                          {currentSentence.wordAnalysis.allTokens.map((item, index) => (
+                            <span 
+                              key={index} 
+                              className={`known-word-badge ${item.status}`}
+                            >
+                              {item.token}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
