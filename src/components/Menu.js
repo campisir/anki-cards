@@ -29,6 +29,7 @@ function Menu({
   const [gradedMode, setGradedMode] = useState(initialGradedMode);
   const [timeLimit, setTimeLimit] = useState(2);
   const [sentenceStudyType, setSentenceStudyType] = useState('reading'); // 'reading', 'listening', 'both'
+  const [tokenizerType, setTokenizerType] = useState('tiny'); // 'tiny' or 'kuromoji'
 
   useEffect(() => {
     setCardLimit(initialCardLimit);
@@ -88,7 +89,7 @@ function Menu({
       setError('Card limit must be at least 1.');
       return;
     }
-    onStartExampleSentences(cardLimit, sentenceStudyType);
+    onStartExampleSentences(cardLimit, sentenceStudyType, tokenizerType);
   };
 
   const parseCardNumbers = (input) => {
@@ -470,6 +471,35 @@ function Menu({
               />
               <span>📖🎧 Both</span>
               <p className="radio-description">Mix of reading and listening</p>
+            </label>
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label>Tokenizer (Word Splitting)</label>
+          <div className="radio-group">
+            <label className="radio-label">
+              <input
+                type="radio"
+                name="tokenizerType"
+                value="tiny"
+                checked={tokenizerType === 'tiny'}
+                onChange={(e) => setTokenizerType(e.target.value)}
+              />
+              <span>⚡ TinySegmenter (Fast)</span>
+              <p className="radio-description">Lightweight, ~85-90% accurate, instant loading</p>
+            </label>
+
+            <label className="radio-label">
+              <input
+                type="radio"
+                name="tokenizerType"
+                value="kuromoji"
+                checked={tokenizerType === 'kuromoji'}
+                onChange={(e) => setTokenizerType(e.target.value)}
+              />
+              <span>🎯 Kuromoji (Accurate)</span>
+              <p className="radio-description">Dictionary-based, 95%+ accurate, slower initial load</p>
             </label>
           </div>
         </div>

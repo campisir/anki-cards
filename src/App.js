@@ -62,7 +62,7 @@ function App() {
   };
 
   // Define onStartExampleSentences callback
-  const handleStartExampleSentences = async (cardLimit, studyType) => {
+  const handleStartExampleSentences = async (cardLimit, studyType, tokenizer) => {
     setLoadingSentences(true);
     setSentenceStudyType(studyType);
     
@@ -71,7 +71,8 @@ function App() {
       const sentences = await getExampleSentencesForStudy(originalCards, cardLimit, {
         limit: 100,
         wordCount: '-15', // Max 15 words
-        hasAudio: studyType === 'listening' || studyType === 'both'
+        hasAudio: studyType === 'listening' || studyType === 'both',
+        tokenizer: tokenizer
       });
       
       if (sentences.length === 0) {

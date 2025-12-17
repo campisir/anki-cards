@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './ExampleSentences.css';
+import CardDetailsModal from './CardDetailsModal';
 
 function ExampleSentences({
   sentences,
@@ -13,6 +14,7 @@ function ExampleSentences({
   const [audioLoaded, setAudioLoaded] = useState(false);
   const [audioError, setAudioError] = useState(false);
   const [showKnownWords, setShowKnownWords] = useState(false);
+  const [selectedToken, setSelectedToken] = useState(null);
   const [stats, setStats] = useState({
     completed: 0,
     total: sentences.length
@@ -200,6 +202,9 @@ function ExampleSentences({
                             <span 
                               key={index} 
                               className={`known-word-badge ${item.status}`}
+                              onClick={() => setSelectedToken(item)}
+                              style={{ cursor: 'pointer' }}
+                              title="Click to see details"
                             >
                               {item.token}
                             </span>
@@ -286,6 +291,70 @@ function ExampleSentences({
           </div>
         </div>
       </div>
+
+      {/* Token Details Modal */}
+      {selectedToken && (
+        <div className="token-modal-overlay" onClick={() => setSelectedToken(null)}>
+          <div className="token-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="token-modal-header">
+              <h3>Token Details</h3>
+              <button onClick={() => setSelectedToken(null)} className="modal-close-btn">×</button>
+            </div>
+            <div className="token-modal-content">
+              <div className="token-detail-row">
+                <span className="token-detail-label">Surface Form:</span>
+                <span className="token-detail-value japanese">{selectedToken.token}</span>
+              </div>
+              <div className="token-detail-row">
+                <span className="token-detail-label">Dictionary Form:</span>
+                <span className="token-detail-value japanese">{selectedToken.basicForm}</span>
+              </div>
+              <div className="token-detail-row">
+                <span className="token-detail-label">Status:</span>
+                <span className={`token-status-badge ${selectedToken.status}`}>
+                  {selectedToken.status === 'known' ? '✓ Known' : 
+                   selectedToken.status === 'unknown' ? '✗ Unknown' : 
+                   '○ Particle/Other'}
+                </span>
+              </div>
+              
+              {selectedToken.matchedCard && (
+                <div className="matched-card-info">
+                  <h4>Matched Card:</h4>
+                  <div className="card-preview">
+                    <div className="card-field">
+                      <strong>Word:</strong> {selectedToken.matchedCard.fields ? selectedToken.matchedCard.fields[0] : selectedToken.matchedCard[0]}
+                    </div>
+                    <div className="card-field">
+                      <strong>Reading:</strong> {selectedToken.matchedCard.fields ? selectedToken.matchedCard.fields[1] : selectedToken.matchedCard[1]}
+                    </div>
+                    <div className="card-field">
+                      <strong>Meaning:</strong> {selectedToken.matchedCard.fields ? selectedToken.matchedCard.fields[2] : selectedToken.matchedCard[2]}
+                    </div>
+                    <div className="card-field">
+                      <strong>Card Index:</strong> {selectedToken.matchedCard.originalIndex}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {!selectedToken.matchedCard && selectedToken.status === 'unknown' && (
+                <div className="no-match-info">
+                  <p>⚠️ This word is not in your deck yet.</p>
+                  <p>Consider adding it to improve your vocabulary!</p>
+                </div>
+              )}
+              
+              {selectedToken.status === 'omitted' && (
+                <div className="omitted-info">
+                  <p>ℹ️ This is a particle or grammatical element.</p>
+                  <p>These are typically not studied as vocabulary cards.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
