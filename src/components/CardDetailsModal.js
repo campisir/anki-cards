@@ -1,20 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './CardDetailsModal.css';
+import { getCard } from '../utils/apiService';
 
 const CardDetailsModal = ({ card, onClose }) => {
   const [activeTab, setActiveTab] = useState('anki');
+  const [fullCard, setFullCard] = useState(card);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch full card details with reviews when modal opens
+  useEffect(() => {
+    const fetchCardDetails = async () => {
+      if (!card.reviews && card.id) {
+        setLoading(true);
+        try {
+          const details = await getCard(card.id);
+          setFullCard({ ...card, reviews: details.reviews });
+        } catch (error) {
+          console.error('Error fetching card details:', error);
+          setFullCard(card);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchCardDetails();
+  }, [card]);
 
   if (!card) return null;
 
   // Calculate Anki stats from imported data and review history
   const calculateAnkiStats = () => {
     // Use imported Anki stats from backend
-    const totalReviews = card.reps || card.repetitions || 0;
-    const lapses = card.lapses || 0;
-    const currentInterval = card.interval || 0;
-    const currentEase = card.easeFactor || card.ease_factor || 0;
+    const totalReviews = fullCard.reps || fullCard.repetitions || 0;
+    const lapses = fullCard.lapses || 0;
+    const currentInterval = fullCard.interval || 0;
+    const currentEase = fullCard.easeFactor || fullCard.ease_factor || 0;
     
-    if (!card.reviews || card.reviews.length === 0) {
+    if (!fullCard.reviews || fullCard.reviews.length === 0) {
       return {
         totalReviews,
         lapses,
@@ -27,7 +50,7 @@ const CardDetailsModal = ({ card, onClose }) => {
       };
     }
 
-    const reviews = [...card.reviews].sort((a, b) => 
+    const reviews = [...fullCard.reviews].sort((a, b) => 
       new Date(a.timestamp) - new Date(b.timestamp)
     );
 
@@ -48,6 +71,22 @@ const CardDetailsModal = ({ card, onClose }) => {
   };
 
   const stats = calculateAnkiStats();
+  
+  if (loading) {
+    return (
+      <div className="card-details-modal-overlay" onClick={(e) => {
+        if (e.target.className === 'card-details-modal-overlay') onClose();
+      }}>
+        <div className="card-details-modal">
+          <div className="card-details-header">
+            <h2 className="card-details-title">Loading...</h2>
+            <button className="card-details-close" onClick={onClose}>×</button>
+          </div>
+          <div className="card-details-content">Loading card details...</div>
+        </div>
+      </div>
+    );
+  }
 
   // Format interval for display
   const formatInterval = (days) => {
@@ -70,8 +109,8 @@ const CardDetailsModal = ({ card, onClose }) => {
   };
 
   // Format reviews for table
-  const formattedReviews = card.reviews
-    ? [...card.reviews]
+  const formattedReviews = fullCard.reviews
+    ? [...fullCard.reviews]
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
         .map(review => {
           const date = new Date(review.timestamp);
