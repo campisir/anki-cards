@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { getWordAudioUrl } from '../utils/cardService';
 import './TimedListening.css';
 
 // Utility to shuffle an array
@@ -19,6 +20,7 @@ function TimedListening({ cards, mediaFiles, timeLimit, onBackToMenu }) {
     const [flipTime, setFlipTime] = useState(null);
     const [cardStartTime, setCardStartTime] = useState(null);
     const [elapsedTime, setElapsedTime] = useState(0);
+    const [wordAudioUrl, setWordAudioUrl] = useState(null);
     
     const intervalRef = useRef(null);
     const audioRef = useRef(null);
@@ -42,6 +44,22 @@ function TimedListening({ cards, mediaFiles, timeLimit, onBackToMenu }) {
             setElapsedTime(elapsed.toFixed(2));
         }, 50);
     };
+
+    // Fetch audio URL when card changes
+    useEffect(() => {
+        const fetchAudio = async () => {
+            if (currentCard && currentCard.id) {
+                try {
+                    const url = await getWordAudioUrl(currentCard.id);
+                    setWordAudioUrl(url);
+                } catch (error) {
+                    console.error('Error fetching audio:', error);
+                    setWordAudioUrl(null);
+                }
+            }
+        };
+        fetchAudio();
+    }, [currentCard]);
 
     // When a new card is loaded, reset state, clear timers, then play audio.
     useEffect(() => {
@@ -74,7 +92,7 @@ function TimedListening({ cards, mediaFiles, timeLimit, onBackToMenu }) {
         return () => {
             clearInterval(intervalRef.current);
         };
-    }, [currentIndex, currentCard, timeLimit]);
+    }, [currentIndex, currentCard, timeLimit, wordAudioUrl]);
 
     // When the user flips the card, stop the timer.
     const handleFlip = () => {
@@ -186,12 +204,12 @@ function TimedListening({ cards, mediaFiles, timeLimit, onBackToMenu }) {
                 ) : (
                     <div className="card-front">
                         <p className="front-text"><strong>Listening Card</strong></p>
-                        {getField(currentCard, 3) && (
+                        {wordAudioUrl && (
                             <audio
                                 ref={audioRef}
                                 controls
                                 style={{ display: 'none' }}
-                                src={mediaFiles[getField(currentCard, 3).replace('[sound:', '').replace(']', '')]}
+                                src={wordAudioUrl}
                             />
                         )}
                         <p>Audio is playing... Click to flip when ready.</p>

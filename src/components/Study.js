@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { updateCardStats, addConfusedCards, getConfusedCards, getAllCards } from '../utils/cardService';
+import { updateCardStats, addConfusedCards, getConfusedCards, getAllCards, getWordAudioUrl, getSentenceAudioUrl, getCardImageUrl } from '../utils/cardService';
 import './Study.css';
 
 function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onBackToMenu }) {
@@ -9,6 +9,9 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
   const [shuffledCards, setShuffledCards] = useState([]);
   const [userAnswer, setUserAnswer] = useState('');
   const [isCorrect, setIsCorrect] = useState(null);
+  const [wordAudioUrl, setWordAudioUrl] = useState(null);
+  const [sentenceAudioUrl, setSentenceAudioUrl] = useState(null);
+  const [imageUrl, setImageUrl] = useState(null);
   const wordAudioRef = useRef(null);
   const sentenceAudioRef = useRef(null);
   const listeningAudioRef = useRef(null);
@@ -67,11 +70,49 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
     }
   }, [currentCardIndex, shuffledCards]);
 
+  // Fetch media URLs when card changes
+  useEffect(() => {
+    const fetchMediaUrls = async () => {
+      if (shuffledCards.length > 0) {
+        const currentCard = shuffledCards[currentCardIndex];
+        
+        // Clear previous URLs
+        setWordAudioUrl(null);
+        setSentenceAudioUrl(null);
+        setImageUrl(null);
+        
+        try {
+          // Fetch word audio if card has it
+          if (currentCard.audio_filename || currentCard.audioFilename) {
+            const url = await getWordAudioUrl(currentCard.id);
+            setWordAudioUrl(url);
+          }
+          
+          // Fetch sentence audio if card has it
+          if (currentCard.sentence_audio_filename || currentCard.sentenceAudioFilename) {
+            const url = await getSentenceAudioUrl(currentCard.id);
+            setSentenceAudioUrl(url);
+          }
+          
+          // Fetch image if card has it
+          if (currentCard.image_filename || currentCard.imageFilename) {
+            const url = await getCardImageUrl(currentCard.id);
+            setImageUrl(url);
+          }
+        } catch (error) {
+          console.error('Error fetching media:', error);
+        }
+      }
+    };
+    
+    fetchMediaUrls();
+  }, [currentCardIndex, shuffledCards]);
+
   useEffect(() => {
     if (shuffledCards.length > 0 && shuffledCards[currentCardIndex].type === 'listening' && listeningAudioRef.current) {
       listeningAudioRef.current.play();
     }
-  }, [currentCardIndex, shuffledCards]);
+  }, [currentCardIndex, shuffledCards, wordAudioUrl]);
 
   useEffect(() => {
     return () => {
@@ -148,9 +189,26 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
   };
 
   const handleFlipCard = () => {
+    const wasShowingFront = !showBack;
     setShowBack((prevShowBack) => !prevShowBack);
     if (!showBack && answerInputRef.current) {
       answerInputRef.current.blur();
+    }
+    
+    // Auto-play word audio then sentence audio when flipping to back
+    if (wasShowingFront) {
+      setTimeout(() => {
+        if (wordAudioRef.current) {
+          wordAudioRef.current.play().catch(err => console.log('Audio play failed:', err));
+          
+          // Play sentence audio after word audio finishes
+          wordAudioRef.current.onended = () => {
+            if (sentenceAudioRef.current && sentenceAudioUrl) {
+              sentenceAudioRef.current.play().catch(err => console.log('Sentence audio play failed:', err));
+            }
+          };
+        }
+      }, 100);
     }
   };
 
@@ -317,16 +375,16 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
               </p>
               <p className="pronunciation-text">
                 <strong>Pronunciation:</strong> <span dangerouslySetInnerHTML={{ __html: getField(currentCard, 2) }} />
-                <audio ref={wordAudioRef} src={mediaFiles[getField(currentCard, 3)?.replace('[sound:', '').replace(']', '')]}></audio>
+                <audio ref={wordAudioRef} src={wordAudioUrl}></audio>
               </p>
               <p>
                 <strong>Sentence:</strong> <span dangerouslySetInnerHTML={{ __html: getField(currentCard, 4) }} />
-                {getField(currentCard, 7) && (
+                {sentenceAudioUrl && (
                   <span className="audio-icon" onClick={(event) => handlePlayAudio(sentenceAudioRef, event)}>
                     <i className="fas fa-volume-up"></i>
                   </span>
                 )}
-                <audio ref={sentenceAudioRef} src={mediaFiles[getField(currentCard, 7)?.replace('[sound:', '').replace(']', '')]}></audio>
+                <audio ref={sentenceAudioRef} src={sentenceAudioUrl}></audio>
               </p>
               <p>
                 <strong>Hiragana Sentence:</strong> <span dangerouslySetInnerHTML={{ __html: getField(currentCard, 5) }} />
@@ -345,7 +403,7 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
                   <div className="front-text">
                     <span dangerouslySetInnerHTML={{ __html: getField(currentCard, 0) }} />
                   </div>
-                  {getField(currentCard, 3) && <audio ref={frontAudioRef} src={mediaFiles[getField(currentCard, 3).replace('[sound:', '').replace(']', '')]}></audio>}
+                  {wordAudioUrl && <audio ref={frontAudioRef} src={wordAudioUrl}></audio>}
                   <div className="pronunciation-icon" onClick={handleTogglePronunciation}>
                     <i className={`fas ${showPronunciation ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
                   </div>
@@ -354,15 +412,12 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
               )}
               {currentCard.type === 'listening' && (
                 <>
-                  <audio ref={listeningAudioRef} controls src={mediaFiles[getField(currentCard, 3).replace('[sound:', '').replace(']', '')]}></audio>
+                  <audio ref={listeningAudioRef} controls src={wordAudioUrl}></audio>
                 </>
               )}
               {currentCard.type === 'picture' && (
                 <>
-                  {getField(currentCard, 8) && <p><span dangerouslySetInnerHTML={{ __html: getField(currentCard, 8).replace(/<img\s+src="([^"]+)"(.*?)>/g, (match, filename, rest) => {
-                    const fullPath = mediaFiles[filename];
-                    return `<img src="${fullPath}"${rest}>`;
-                  }) }} /></p>}
+                  {imageUrl && <p><img src={imageUrl} alt="Card" style={{ maxWidth: '100%', height: 'auto' }} /></p>}
                 </>
               )}
             </div>

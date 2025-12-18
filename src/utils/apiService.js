@@ -195,3 +195,52 @@ export const syncData = async (data) => {
 export const isAuthenticated = () => {
   return !!getToken();
 };
+
+// Media APIs
+export const getWordAudio = async (cardId) => {
+  const token = getToken();
+  const response = await fetch(`${API_BASE}/cards/${cardId}/audio/word`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch word audio');
+  }
+  
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
+};
+
+export const getSentenceAudio = async (cardId) => {
+  const token = getToken();
+  const response = await fetch(`${API_BASE}/cards/${cardId}/audio/sentence`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch sentence audio');
+  }
+  
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
+};
+
+export const getCardImage = async (cardId) => {
+  const token = getToken();
+  const response = await fetch(`${API_BASE}/cards/${cardId}/image`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch card image');
+  }
+  
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
+};

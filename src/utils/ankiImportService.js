@@ -249,13 +249,28 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
 
     if (progressCallback) progressCallback(70, 'Loading frequency data...');
 
-    // Get frequency map
-    const frequencyMap = await getFrequencyMap();
+    // Get frequency map (optional - gracefully handle failure)
+    let frequencyMap = {};
+    try {
+      frequencyMap = await getFrequencyMap();
+    } catch (error) {
+      console.warn('Could not load frequency map, skipping frequency ranks:', error.message);
+      // Continue without frequency data - not critical for import
+    }
 
     if (progressCallback) progressCallback(80, 'Creating card records...');
 
+    // Helper function to convert blob to base64
+    const blobToBase64 = (blob) => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result.split(',')[1]); // Get base64 part only
+        reader.readAsDataURL(blob);
+      });
+    };
+
     // Create full card objects formatted for backend API
-    const cards = uniqueCards.map(card => {
+    const cards = await Promise.all(uniqueCards.map(async card => {
       // Log first card to debug field structure
       if (card.originalIndex === 1) {
         console.log('First card fields:', card.fields);
@@ -297,6 +312,13 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
         audioFilename = audioMatch[1];
       }
       
+      // Extract sentence audio filename
+      let sentenceAudioFilename = null;
+      const sentenceAudioMatch = sentenceAudio?.match(/\[sound:([^\]]+)\]/);
+      if (sentenceAudioMatch) {
+        sentenceAudioFilename = sentenceAudioMatch[1];
+      }
+      
       // Extract image filename
       let imageFilename = null;
       const imageMatch = image?.match(/src="([^"]+)"/);
@@ -308,15 +330,37 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
       const cleanSentence = stripHtmlTags(sentence || '');
       const cleanSentenceMeaning = stripHtmlTags(sentenceMeaning || '');
       
+      // Convert media blobs to base64 for upload
+      let wordAudioBase64 = null;
+      let sentenceAudioBase64 = null;
+      let imageBase64 = null;
+      
+      if (audioFilename && loadedMedia[audioFilename]) {
+        wordAudioBase64 = await blobToBase64(loadedMedia[audioFilename]);
+      }
+      
+      if (sentenceAudioFilename && loadedMedia[sentenceAudioFilename]) {
+        sentenceAudioBase64 = await blobToBase64(loadedMedia[sentenceAudioFilename]);
+      }
+      
+      if (imageFilename && loadedMedia[imageFilename]) {
+        imageBase64 = await blobToBase64(loadedMedia[imageFilename]);
+      }
+      
       return {
         nid: card.nid,
         word: stripHtmlTags(word || ''),
         reading: cleanReading,
         meaning: stripHtmlTags(meaning || ''),
         sentence: cleanSentence,
+        sentence_reading: stripHtmlTags(sentenceReading || ''),
         sentence_meaning: cleanSentenceMeaning,
         audio_filename: audioFilename,
+        sentence_audio_filename: sentenceAudioFilename,
         image_filename: imageFilename,
+        word_audio: wordAudioBase64,
+        sentence_audio: sentenceAudioBase64,
+        image: imageBase64,
         original_index: card.originalIndex,
         rank: frequencyMap[stripHtmlTags(word || '')] || null,
         due: card.due ? new Date(card.due).toISOString() : null,
@@ -334,7 +378,7 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
           review_type: review.type
         }))
       };
-    });
+    }));
 
     if (progressCallback) progressCallback(90, `Saving ${cards.length} cards to backend...`);
 

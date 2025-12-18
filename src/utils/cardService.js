@@ -59,16 +59,23 @@ export const getAllCards = async () => {
       originalIndex: card.original_index,
       easeFactor: card.ease_factor,
       audioFilename: card.audio_filename,
+      sentenceAudioFilename: card.sentence_audio_filename,
       imageFilename: card.image_filename,
       lastReviewed: card.last_reviewed,
       sentenceMeaning: card.sentence_meaning,
-      // Create fields array for components that expect it
+      sentenceReading: card.sentence_reading,
+      // Create fields array for components that expect it (9 fields to match Anki structure)
+      // 0: Word, 1: Meaning, 2: Reading, 3: Word audio, 4: Sentence, 5: Sentence reading, 6: Sentence meaning, 7: Sentence audio, 8: Image
       fields: [
         card.word || '',
-        card.reading || '',
         card.meaning || '',
+        card.reading || '',
+        card.audio_filename ? `[sound:${card.audio_filename}]` : '',
         card.sentence || '',
-        card.sentence_meaning || ''
+        card.sentence_reading || '',
+        card.sentence_meaning || '',
+        card.sentence_audio_filename ? `[sound:${card.sentence_audio_filename}]` : '',
+        card.image_filename ? `<img src="${card.image_filename}">` : ''
       ],
       // Anki compatibility fields
       repetitions: card.reps,
@@ -243,5 +250,47 @@ export const setMetadata = async (preferences) => {
   } catch (error) {
     console.error('Error setting preferences:', error);
     throw error;
+  }
+};
+
+/**
+ * Get audio URL for a card's word
+ * @param {number} cardId - Backend database ID
+ * @returns {Promise<string>} - Blob URL for the audio
+ */
+export const getWordAudioUrl = async (cardId) => {
+  try {
+    return await api.getWordAudio(cardId);
+  } catch (error) {
+    console.error('Error fetching word audio:', error);
+    return null;
+  }
+};
+
+/**
+ * Get audio URL for a card's sentence
+ * @param {number} cardId - Backend database ID
+ * @returns {Promise<string>} - Blob URL for the audio
+ */
+export const getSentenceAudioUrl = async (cardId) => {
+  try {
+    return await api.getSentenceAudio(cardId);
+  } catch (error) {
+    console.error('Error fetching sentence audio:', error);
+    return null;
+  }
+};
+
+/**
+ * Get image URL for a card
+ * @param {number} cardId - Backend database ID
+ * @returns {Promise<string>} - Blob URL for the image
+ */
+export const getCardImageUrl = async (cardId) => {
+  try {
+    return await api.getCardImage(cardId);
+  } catch (error) {
+    console.error('Error fetching card image:', error);
+    return null;
   }
 };
