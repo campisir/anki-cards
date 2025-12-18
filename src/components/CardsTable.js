@@ -12,9 +12,12 @@ function CardsTable({ cards, mediaFiles, onBackToMenu }) {
 
   // Calculate Anki stats for each card
   const getAnkiStats = (card) => {
-    const reviewCount = card.reviews ? card.reviews.length : 0;
-    const lapseCount = card.reviews ? card.reviews.filter(r => r.ease === 1).length : 0;
-    return { reviewCount, lapseCount };
+    // Use imported Anki stats from backend
+    const reviewCount = card.repetitions || 0;
+    const lapseCount = card.lapses || 0;
+    const interval = card.interval || 0;
+    const easeFactor = card.easeFactor || 0;
+    return { reviewCount, lapseCount, interval, easeFactor };
   };
 
   // Sort cards based on selected criterion
@@ -117,27 +120,17 @@ function CardsTable({ cards, mediaFiles, onBackToMenu }) {
         <table className="cards-table">
         <thead>
           <tr>
-            <th>Original Index</th>
+            <th>Index</th>
             <th>Rank</th>
             <th>Word</th>
+            <th>Reading</th>
             <th>Meaning</th>
-            <th>Example Sentence</th>
-            <th>Example Sentence Meaning</th>
+            <th>Sentence</th>
+            <th>Sentence Meaning</th>
           </tr>
         </thead>
         <tbody>
           {currentCards.map((card, index) => {
-            // Helper to access card fields (handles both old array format and new object format)
-            const getField = (c, idx) => (c.fields ? c.fields[idx] : c[idx]);
-            
-            // Mapping based on Study.js index assignments:
-            // field[0]: Word, field[1]: Meaning,
-            // field[3]: Word audio,
-            // field[4]: Example Sentence, field[7]: Sentence audio,
-            // field[6]: Example Sentence Meaning,
-            // card.rank is added from App.js.
-            const wordAudioSrc = getAudioSrc(getField(card, 3));
-            const sentenceAudioSrc = getAudioSrc(getField(card, 7));
             return (
               <tr 
                 key={index + indexOfFirstRow}
@@ -149,33 +142,22 @@ function CardsTable({ cards, mediaFiles, onBackToMenu }) {
                   <span>{card.originalIndex}</span>
                 </td>
                 <td>
-                  <span>{card.rank}</span>
-                </td>
-                <td
-                  className="clickable"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    playAudio(wordAudioSrc);
-                  }}
-                  title="Click to play word audio"
-                >
-                  <span dangerouslySetInnerHTML={{ __html: getField(card, 0) }} />
+                  <span>{card.rank || '-'}</span>
                 </td>
                 <td>
-                  <span dangerouslySetInnerHTML={{ __html: getField(card, 1) }} />
-                </td>
-                <td
-                  className="clickable"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    playAudio(sentenceAudioSrc);
-                  }}
-                  title="Click to play sentence audio"
-                >
-                  <span dangerouslySetInnerHTML={{ __html: getField(card, 4) }} />
+                  <span>{card.word}</span>
                 </td>
                 <td>
-                  <span dangerouslySetInnerHTML={{ __html: getField(card, 6) }} />
+                  <span>{card.reading}</span>
+                </td>
+                <td>
+                  <span>{card.meaning}</span>
+                </td>
+                <td title={card.sentence}>
+                  <span>{card.sentence?.substring(0, 40)}{card.sentence?.length > 40 ? '...' : ''}</span>
+                </td>
+                <td title={card.sentenceMeaning}>
+                  <span>{card.sentenceMeaning?.substring(0, 40)}{card.sentenceMeaning?.length > 40 ? '...' : ''}</span>
                 </td>
               </tr>
             );

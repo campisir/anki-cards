@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from './contexts/AuthContext';
+import Login from './components/Login';
 import Menu from './components/Menu';
 import Study from './components/Study';
 import CardsTable from './components/CardsTable';
@@ -6,7 +8,7 @@ import TimedListening from './components/TimedListening';
 import ExampleSentences from './components/ExampleSentences';
 import Settings from './components/Settings';
 import { getAllCards } from './utils/cardService';
-import { isDatabaseInitialized, importAnkiDeck } from './utils/ankiImportService';
+import { importAnkiDeck } from './utils/ankiImportService';
 import { getMetadata } from './utils/cardService';
 import { getExampleSentencesForStudy } from './utils/sentenceService';
 import './App.css';
@@ -19,6 +21,7 @@ const stripHtmlTags = (html) => {
 };
 
 function App() {
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [originalCards, setOriginalCards] = useState([]); // unsorted, original order
   const [cards, setCards] = useState([]); // sorted by frequency for table view
   const [mediaFiles, setMediaFiles] = useState({});
@@ -41,7 +44,6 @@ function App() {
   const [exampleSentences, setExampleSentences] = useState([]);
   const [sentenceStudyType, setSentenceStudyType] = useState('reading');
   const [loadingSentences, setLoadingSentences] = useState(false);
-  const [dbInitialized, setDbInitialized] = useState(false);
 
   // Cleanup blob URLs on unmount to prevent memory leaks
   useEffect(() => {
@@ -100,27 +102,7 @@ function App() {
 
     const loadData = async () => {
       try {
-        // Check if database is initialized
-        const initialized = await isDatabaseInitialized();
-        setDbInitialized(initialized);
-
-        if (!initialized) {
-          // First time setup - automatically import the default deck
-          // Try .colpkg first (has complete review history), then fall back to .apkg
-          console.log('Database not initialized. Importing default deck...');
-          try {
-            await importAnkiDeck('deck-collection.colpkg', (progress, message) => {
-              console.log(`Import progress: ${progress}% - ${message}`);
-            });
-          } catch (error) {
-            console.log('No .colpkg found, trying .apkg...');
-            await importAnkiDeck('deck.apkg', (progress, message) => {
-              console.log(`Import progress: ${progress}% - ${message}`);
-            });
-          }
-        }
-
-        // Load cards from IndexedDB
+        // Load cards from backend API
         const cardsFromDB = await getAllCards();
         
         // Load media files from metadata
@@ -208,7 +190,6 @@ function App() {
           }
           
           setError(null);
-          setDbInitialized(true);
         } else if (isMounted) {
           setError("No cards found in database. Please import your deck in Settings.");
         }
@@ -364,6 +345,15 @@ function App() {
     setCards(sortedFilteredCards);
     setShowTable(true);
   };
+
+  // Show login if not authenticated
+  if (authLoading) {
+    return <div className="loading-message">Loading...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return <Login />;
+  }
 
   return (
     <div className="App">

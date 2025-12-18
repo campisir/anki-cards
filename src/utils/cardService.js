@@ -1,17 +1,9 @@
 /**
  * Service for managing card data and operations
+ * Now uses backend API instead of IndexedDB
  */
 
-import { 
-  getAllRecords, 
-  getRecord, 
-  putRecord, 
-  putMultipleRecords,
-  deleteRecord,
-  clearStore,
-  getRecordsByIndex,
-  STORES 
-} from './indexedDB';
+import * as api from './apiService';
 
 /**
  * Card data structure:
@@ -40,20 +32,66 @@ import {
  */
 
 /**
- * Get all cards from the database
+ * Get all cards from the backend API (fetches all pages)
  * @returns {Promise<Array>}
  */
 export const getAllCards = async () => {
-  return await getAllRecords(STORES.CARDS);
+  try {
+    let allCards = [];
+    let page = 1;
+    let hasMore = true;
+    const perPage = 500; // Fetch 500 cards per request
+    
+    while (hasMore) {
+      const response = await api.getCards({ page, per_page: perPage });
+      const cards = response.cards || [];
+      allCards = allCards.concat(cards);
+      
+      // Check if there are more pages
+      hasMore = page < (response.pages || 1);
+      page++;
+    }
+    
+    // Transform backend format to frontend format
+    return allCards.map(card => ({
+      ...card,
+      // Add camelCase aliases for snake_case fields
+      originalIndex: card.original_index,
+      easeFactor: card.ease_factor,
+      audioFilename: card.audio_filename,
+      imageFilename: card.image_filename,
+      lastReviewed: card.last_reviewed,
+      sentenceMeaning: card.sentence_meaning,
+      // Create fields array for components that expect it
+      fields: [
+        card.word || '',
+        card.reading || '',
+        card.meaning || '',
+        card.sentence || '',
+        card.sentence_meaning || ''
+      ],
+      // Anki compatibility fields
+      repetitions: card.reps,
+      factor: card.ease_factor,
+    }));
+  } catch (error) {
+    console.error('Error fetching cards:', error);
+    throw error;
+  }
 };
 
 /**
- * Get a single card by nid
- * @param {number} nid 
+ * Get a single card by database ID
+ * @param {number} cardId - Backend database ID
  * @returns {Promise<Object>}
  */
-export const getCard = async (nid) => {
-  return await getRecord(STORES.CARDS, nid);
+export const getCard = async (cardId) => {
+  try {
+    return await api.getCard(cardId);
+  } catch (error) {
+    console.error('Error fetching card:', error);
+    throw error;
+  }
 };
 
 /**
@@ -62,208 +100,148 @@ export const getCard = async (nid) => {
  * @returns {Promise<void>}
  */
 export const saveCard = async (card) => {
-  const cardData = {
-    ...card,
-    lastModified: Date.now()
-  };
-  await putRecord(STORES.CARDS, cardData);
+  try {
+    if (card.id) {
+      // Update existing card
+      await api.updateCard(card.id, card);
+    } else {
+      // For new cards, use bulk import
+      await api.importCards([card]);
+    }
+  } catch (error) {
+    console.error('Error saving card:', error);
+    throw error;
+  }
 };
 
 /**
- * Save multiple cards at once
+ * Save multiple cards at once (bulk import)
  * @param {Array} cards 
  * @returns {Promise<void>}
  */
 export const saveMultipleCards = async (cards) => {
-  const timestamp = Date.now();
-  const cardsWithTimestamp = cards.map(card => ({
-    ...card,
-    lastModified: timestamp
-  }));
-  await putMultipleRecords(STORES.CARDS, cardsWithTimestamp);
-};
-
-/**
- * Update only Anki-specific fields (for selective sync)
- * @param {number} nid 
- * @param {Object} ankiData - { due, interval, factor, repetitions, lapses, reviews }
- * @returns {Promise<void>}
- */
-export const updateAnkiStats = async (nid, ankiData) => {
-  const existingCard = await getCard(nid);
-  
-  if (existingCard) {
-    // Preserve app-specific data, update only Anki stats
-    const updatedCard = {
-      ...existingCard,
-      due: ankiData.due,
-      interval: ankiData.interval,
-      factor: ankiData.factor,
-      repetitions: ankiData.repetitions,
-      lapses: ankiData.lapses,
-      reviews: ankiData.reviews,
-      lastAnkiSync: Date.now(),
-      lastModified: Date.now()
-    };
-    await putRecord(STORES.CARDS, updatedCard);
-  } else {
-    // Card doesn't exist, create new one
-    const newCard = {
-      nid,
-      ...ankiData,
-      // Initialize app-specific fields
-      appAnswerRate: 0,
-      appTotalAttempts: 0,
-      appCorrectAttempts: 0,
-      confusedWith: [],
-      lastAnkiSync: Date.now(),
-      lastModified: Date.now()
-    };
-    await putRecord(STORES.CARDS, newCard);
+  try {
+    await api.importCards(cards);
+  } catch (error) {
+    console.error('Error saving multiple cards:', error);
+    throw error;
   }
 };
 
 /**
  * Update card's app-specific answer statistics
- * @param {number} nid 
+ * @param {number} cardId - Backend database ID 
  * @param {boolean} wasCorrect 
+ * @param {number} responseTime - Response time in milliseconds
+ * @param {string} studyMode - Study mode type
  * @returns {Promise<void>}
  */
-export const updateCardStats = async (nid, wasCorrect) => {
-  const card = await getCard(nid);
-  
-  if (card) {
-    const totalAttempts = (card.appTotalAttempts || 0) + 1;
-    const correctAttempts = (card.appCorrectAttempts || 0) + (wasCorrect ? 1 : 0);
-    const answerRate = Math.round((correctAttempts / totalAttempts) * 100);
-
-    const updatedCard = {
-      ...card,
-      appTotalAttempts: totalAttempts,
-      appCorrectAttempts: correctAttempts,
-      appAnswerRate: answerRate,
-      lastModified: Date.now()
-    };
-
-    await putRecord(STORES.CARDS, updatedCard);
+export const updateCardStats = async (cardId, wasCorrect, responseTime = null, studyMode = 'study') => {
+  try {
+    // Determine quality rating (0-5 scale for Anki compatibility)
+    const quality = wasCorrect ? 4 : 2; // 4 = "Good", 2 = "Hard/Failed"
+    
+    // Record the review
+    await api.recordReview(cardId, quality, responseTime, studyMode, wasCorrect);
+  } catch (error) {
+    console.error('Error updating card stats:', error);
+    throw error;
   }
 };
 
 /**
  * Record a confusion between two cards
- * @param {number} cardId1 
- * @param {number} cardId2 
+ * @param {number} cardId1 - Backend database ID
+ * @param {number} cardId2 - Backend database ID
  * @returns {Promise<void>}
  */
 export const addConfusedCards = async (cardId1, cardId2) => {
-  // Ensure consistent ordering (smaller ID first)
-  const [smallerId, largerId] = cardId1 < cardId2 ? [cardId1, cardId2] : [cardId2, cardId1];
-
   try {
-    // Check if this pair already exists
-    const existingPairs = await getAllRecords(STORES.CONFUSED_CARDS);
-    const existingPair = existingPairs.find(
-      pair => pair.cardId1 === smallerId && pair.cardId2 === largerId
-    );
-
-    if (existingPair) {
-      // Increment count
-      const updated = {
-        ...existingPair,
-        count: existingPair.count + 1,
-        lastConfused: Date.now()
-      };
-      await putRecord(STORES.CONFUSED_CARDS, updated);
-    } else {
-      // Create new confusion record
-      const newPair = {
-        cardId1: smallerId,
-        cardId2: largerId,
-        count: 1,
-        lastConfused: Date.now()
-      };
-      await putRecord(STORES.CONFUSED_CARDS, newPair);
-    }
+    await api.addConfusedPair(cardId1, cardId2);
   } catch (error) {
     console.error('Error adding confused cards:', error);
+    throw error;
   }
 };
 
 /**
  * Get all cards confused with a specific card
- * @param {number} cardId 
+ * @param {number} cardId - Backend database ID
  * @returns {Promise<Array>}
  */
 export const getConfusedCards = async (cardId) => {
-  const allPairs = await getAllRecords(STORES.CONFUSED_CARDS);
-  
-  // Find pairs where this card is involved
-  const confusedPairs = allPairs.filter(
-    pair => pair.cardId1 === cardId || pair.cardId2 === cardId
-  );
-
-  // Extract the other card IDs
-  const confusedCardIds = confusedPairs.map(pair => {
-    return pair.cardId1 === cardId ? pair.cardId2 : pair.cardId1;
-  });
-
-  // Get the full card data
-  const confusedCards = await Promise.all(
-    confusedCardIds.map(async (nid) => {
-      const card = await getCard(nid);
-      const pair = confusedPairs.find(p => p.cardId1 === nid || p.cardId2 === nid);
-      return {
-        ...card,
-        confusionCount: pair.count,
-        lastConfused: pair.lastConfused
-      };
-    })
-  );
-
-  return confusedCards;
+  try {
+    const response = await api.getConfusedPairs();
+    const pairs = response.pairs || [];
+    
+    // Filter pairs involving this card
+    const relevantPairs = pairs.filter(
+      pair => pair.card_id_1 === cardId || pair.card_id_2 === cardId
+    );
+    
+    return relevantPairs;
+  } catch (error) {
+    console.error('Error getting confused cards:', error);
+    return [];
+  }
 };
 
 /**
  * Delete a card
- * @param {number} nid 
+ * @param {number} cardId - Backend database ID
  * @returns {Promise<void>}
  */
-export const deleteCard = async (nid) => {
-  await deleteRecord(STORES.CARDS, nid);
+export const deleteCard = async (cardId) => {
+  try {
+    await api.deleteCard(cardId);
+  } catch (error) {
+    console.error('Error deleting card:', error);
+    throw error;
+  }
 };
 
 /**
- * Clear all cards from database
- * @returns {Promise<void>}
+ * Get review statistics
+ * @returns {Promise<Object>}
  */
-export const clearAllCards = async () => {
-  await clearStore(STORES.CARDS);
+export const getReviewStats = async () => {
+  try {
+    return await api.getReviewStats();
+  } catch (error) {
+    console.error('Error getting review stats:', error);
+    return {
+      total_reviews: 0,
+      correct_reviews: 0,
+      accuracy: 0,
+      total_cards: 0,
+      average_quality: 0
+    };
+  }
 };
 
 /**
- * Clear all confused card relationships
- * @returns {Promise<void>}
+ * Get user preferences (metadata replacement)
+ * @returns {Promise<Object>}
  */
-export const clearAllConfusedCards = async () => {
-  await clearStore(STORES.CONFUSED_CARDS);
+export const getMetadata = async () => {
+  try {
+    return await api.getPreferences();
+  } catch (error) {
+    console.error('Error getting preferences:', error);
+    return null;
+  }
 };
 
 /**
- * Get metadata value
- * @param {string} key 
- * @returns {Promise<any>}
- */
-export const getMetadata = async (key) => {
-  const record = await getRecord(STORES.METADATA, key);
-  return record ? record.value : null;
-};
-
-/**
- * Set metadata value
- * @param {string} key 
- * @param {any} value 
+ * Set user preferences (metadata replacement)
+ * @param {Object} preferences 
  * @returns {Promise<void>}
  */
-export const setMetadata = async (key, value) => {
-  await putRecord(STORES.METADATA, { key, value, timestamp: Date.now() });
+export const setMetadata = async (preferences) => {
+  try {
+    await api.updatePreferences(preferences);
+  } catch (error) {
+    console.error('Error setting preferences:', error);
+    throw error;
+  }
 };

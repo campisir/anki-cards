@@ -1,42 +1,42 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { 
-  importAnkiDeck, 
-  syncAnkiStats, 
-  isDatabaseInitialized, 
-  getImportHistory 
+  importAnkiDeck
 } from '../utils/ankiImportService';
-import { clearAllCards, clearAllConfusedCards, getAllCards } from '../utils/cardService';
-import { deleteDatabase } from '../utils/indexedDB';
+import { getAllCards, getReviewStats } from '../utils/cardService';
+import { getImportHistory } from '../utils/apiService';
 import './Settings.css';
 
 function Settings({ onBackToMenu }) {
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [importHistory, setImportHistory] = useState(null);
+  const { user, logout } = useAuth();
+  const [importHistory, setImportHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
   const [message, setMessage] = useState({ type: '', text: '' });
   const [selectedFile, setSelectedFile] = useState(null);
   const [cardCount, setCardCount] = useState(0);
+  const [stats, setStats] = useState(null);
 
   useEffect(() => {
-    loadDatabaseStatus();
+    loadUserData();
   }, []);
 
-  const loadDatabaseStatus = async () => {
+  const loadUserData = async () => {
     try {
-      const initialized = await isDatabaseInitialized();
-      setIsInitialized(initialized);
+      // Get cards count
+      const cardsResponse = await getAllCards();
+      setCardCount(cardsResponse.length);
 
-      if (initialized) {
-        const history = await getImportHistory();
-        setImportHistory(history);
+      // Get import history
+      const historyResponse = await getImportHistory();
+      setImportHistory(historyResponse.imports || []);
 
-        const cards = await getAllCards();
-        setCardCount(cards.length);
-      }
+      // Get review stats
+      const statsResponse = await getReviewStats();
+      setStats(statsResponse);
     } catch (error) {
-      console.error('Error loading database status:', error);
+      console.error('Error loading user data:', error);
     }
   };
 
@@ -46,7 +46,7 @@ function Settings({ onBackToMenu }) {
   };
 
   const handleFullImport = async () => {
-    if (!selectedFile && !isInitialized) {
+    if (!selectedFile) {
       setMessage({ type: 'error', text: 'Please select an .apkg or .colpkg file to import.' });
       return;
     }
@@ -54,19 +54,16 @@ function Settings({ onBackToMenu }) {
     try {
       setLoading(true);
       setMessage({ type: '', text: '' });
-
-      // Use selected file or default deck.apkg
-      const source = selectedFile || 'deck.apkg';
       
-      const result = await importAnkiDeck(source, handleProgressUpdate);
+      const result = await importAnkiDeck(selectedFile, handleProgressUpdate);
 
       setMessage({ 
         type: 'success', 
-        text: `Successfully imported ${result.cards} cards!` 
+        text: `Successfully imported ${result.cards} cards to backend!` 
       });
 
       // Refresh status
-      await loadDatabaseStatus();
+      await loadUserData();
       setSelectedFile(null);
 
     } catch (error) {
@@ -78,123 +75,6 @@ function Settings({ onBackToMenu }) {
       setLoading(false);
       setProgress(0);
       setProgressMessage('');
-    }
-  };
-
-  const handleSyncStats = async () => {
-    if (!selectedFile && !isInitialized) {
-      setMessage({ type: 'error', text: 'Please select an .apkg or .colpkg file to sync.' });
-      return;
-    }
-
-    if (!isInitialized) {
-      setMessage({ type: 'error', text: 'Database not initialized. Please do a full import first.' });
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setMessage({ type: '', text: '' });
-
-      // Use selected file or default deck.apkg
-      const source = selectedFile || 'deck.apkg';
-
-      const result = await syncAnkiStats(source, handleProgressUpdate);
-
-      setMessage({ 
-        type: 'success', 
-        text: `Synced Anki stats! Updated: ${result.updated}, Added: ${result.added}` 
-      });
-
-      // Refresh status
-      await loadDatabaseStatus();
-      setSelectedFile(null);
-
-    } catch (error) {
-      setMessage({ 
-        type: 'error', 
-        text: `Sync failed: ${error.message}` 
-      });
-    } finally {
-      setLoading(false);
-      setProgress(0);
-      setProgressMessage('');
-    }
-  };
-
-  const handleResetDatabase = async () => {
-    const confirmed = window.confirm(
-      'Are you sure you want to reset the entire database? This will delete ALL data including your answer rates and confused card relationships. This action cannot be undone!'
-    );
-
-    if (!confirmed) return;
-
-    try {
-      setLoading(true);
-      setMessage({ type: '', text: '' });
-
-      await deleteDatabase();
-
-      setMessage({ 
-        type: 'success', 
-        text: 'Database has been completely reset. Please do a full import to start fresh.' 
-      });
-
-      setIsInitialized(false);
-      setImportHistory(null);
-      setCardCount(0);
-
-    } catch (error) {
-      setMessage({ 
-        type: 'error', 
-        text: `Reset failed: ${error.message}` 
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleClearAppData = async () => {
-    const confirmed = window.confirm(
-      'This will clear your app-specific data (answer rates, confused cards) but keep Anki data. Continue?'
-    );
-
-    if (!confirmed) return;
-
-    try {
-      setLoading(true);
-      setMessage({ type: '', text: '' });
-
-      // Clear confused cards
-      await clearAllConfusedCards();
-
-      // Reset app-specific fields for all cards
-      const cards = await getAllCards();
-      const resetCards = cards.map(card => ({
-        ...card,
-        appAnswerRate: 0,
-        appTotalAttempts: 0,
-        appCorrectAttempts: 0,
-        confusedWith: []
-      }));
-
-      // This would need a batch update function, for now just clear confused cards
-      await clearAllConfusedCards();
-
-      setMessage({ 
-        type: 'success', 
-        text: 'App-specific data has been cleared.' 
-      });
-
-      await loadDatabaseStatus();
-
-    } catch (error) {
-      setMessage({ 
-        type: 'error', 
-        text: `Clear failed: ${error.message}` 
-      });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -217,36 +97,66 @@ function Settings({ onBackToMenu }) {
   return (
     <div className="settings-container">
       <div className="settings-header">
-        <h1>Database Settings</h1>
+        <h1>Settings</h1>
         <button className="back-button" onClick={onBackToMenu}>
           ← Back to Menu
         </button>
       </div>
 
       <div className="settings-content">
+        {/* User Info */}
+        <div className="settings-section">
+          <h2>Account</h2>
+          <div className="status-info">
+            <div className="status-row">
+              <span className="status-label">Username:</span>
+              <span className="status-value">{user?.username}</span>
+            </div>
+            <div className="status-row">
+              <span className="status-label">Email:</span>
+              <span className="status-value">{user?.email}</span>
+            </div>
+            <div className="status-row">
+              <button className="action-button danger" onClick={() => { logout(); onBackToMenu(); }}>
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Database Status */}
         <div className="settings-section">
           <h2>Database Status</h2>
           <div className="status-info">
             <div className="status-row">
-              <span className="status-label">Status:</span>
-              <span className={`status-value ${isInitialized ? 'initialized' : 'not-initialized'}`}>
-                {isInitialized ? '✓ Initialized' : '✗ Not Initialized'}
-              </span>
-            </div>
-            <div className="status-row">
               <span className="status-label">Total Cards:</span>
               <span className="status-value">{cardCount}</span>
             </div>
-            {importHistory && (
+            {stats && (
               <>
                 <div className="status-row">
-                  <span className="status-label">Last Full Import:</span>
-                  <span className="status-value">{formatDate(importHistory.lastFullImport)}</span>
+                  <span className="status-label">Total Reviews:</span>
+                  <span className="status-value">{stats.total_reviews}</span>
                 </div>
                 <div className="status-row">
-                  <span className="status-label">Last Anki Sync:</span>
-                  <span className="status-value">{formatDate(importHistory.lastAnkiSync)}</span>
+                  <span className="status-label">Accuracy:</span>
+                  <span className="status-value">{stats.accuracy.toFixed(1)}%</span>
+                </div>
+                <div className="status-row">
+                  <span className="status-label">Average Quality:</span>
+                  <span className="status-value">{stats.average_quality.toFixed(2)}</span>
+                </div>
+              </>
+            )}
+            {importHistory && importHistory.length > 0 && (
+              <>
+                <div className="status-row">
+                  <span className="status-label">Last Import:</span>
+                  <span className="status-value">{formatDate(importHistory[0].import_time)}</span>
+                </div>
+                <div className="status-row">
+                  <span className="status-label">Last Import File:</span>
+                  <span className="status-value">{importHistory[0].filename}</span>
                 </div>
               </>
             )}
@@ -280,51 +190,9 @@ function Settings({ onBackToMenu }) {
               disabled={loading}
             >
               <span className="button-icon">📥</span>
-              Full Import
+              Import Deck
               <span className="button-description">
-                Import all cards from .apkg file (replaces existing data)
-              </span>
-            </button>
-
-            <button
-              className="action-button secondary"
-              onClick={handleSyncStats}
-              disabled={loading || !isInitialized}
-            >
-              <span className="button-icon">🔄</span>
-              Sync Anki Stats
-              <span className="button-description">
-                Update only Anki statistics (preserves app data)
-              </span>
-            </button>
-          </div>
-        </div>
-
-        {/* Danger Zone */}
-        <div className="settings-section danger-zone">
-          <h2>⚠️ Danger Zone</h2>
-          <div className="action-buttons">
-            <button
-              className="action-button danger"
-              onClick={handleClearAppData}
-              disabled={loading || !isInitialized}
-            >
-              <span className="button-icon">🗑️</span>
-              Clear App Data
-              <span className="button-description">
-                Clear answer rates and confused cards (keeps Anki data)
-              </span>
-            </button>
-
-            <button
-              className="action-button danger"
-              onClick={handleResetDatabase}
-              disabled={loading}
-            >
-              <span className="button-icon">💣</span>
-              Reset Entire Database
-              <span className="button-description">
-                Delete everything and start fresh
+                Import cards from .apkg file to your account
               </span>
             </button>
           </div>

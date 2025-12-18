@@ -10,7 +10,7 @@ import initSqlJs from 'sql.js';
 import JSZip from 'jszip';
 import { unzlib } from 'fflate';
 import { decompress as decompressZstd } from 'fzstd';
-import { saveMultipleCards, updateAnkiStats, getCard, setMetadata, getMetadata } from './cardService';
+import { saveMultipleCards, getMetadata, setMetadata } from './cardService';
 import { getFrequencyMap } from './getFrequencyMap';
 
 // Utility function to strip HTML tags from a string
@@ -232,9 +232,18 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
         const existingCard = cardsByNote.get(card.nid);
         existingCard.reviews = [...existingCard.reviews, ...card.reviews];
         
-        // Also sum up the repetition counts
+        // Sum up the repetition counts and lapses
         existingCard.repetitions += card.repetitions;
         existingCard.lapses += card.lapses;
+        
+        // Take the maximum interval and factor (most mature card state)
+        existingCard.interval = Math.max(existingCard.interval || 0, card.interval || 0);
+        existingCard.factor = Math.max(existingCard.factor || 2500, card.factor || 2500);
+        
+        // Keep the most recent due date
+        if (card.due && (!existingCard.due || card.due > existingCard.due)) {
+          existingCard.due = card.due;
+        }
       }
     });
 
@@ -245,23 +254,114 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
 
     if (progressCallback) progressCallback(80, 'Creating card records...');
 
-    // Create full card objects with app-specific fields initialized
-    const cards = uniqueCards.map(card => ({
-      ...card,
-      rank: frequencyMap[stripHtmlTags(card.fields[0])] || 'N/A',
-      // Initialize app-specific fields
-      appAnswerRate: 0,
-      appTotalAttempts: 0,
-      appCorrectAttempts: 0,
-      confusedWith: [],
-      lastAnkiSync: Date.now(),
-      lastModified: Date.now()
-    }));
+    // Create full card objects formatted for backend API
+    const cards = uniqueCards.map(card => {
+      // Log first card to debug field structure
+      if (card.originalIndex === 1) {
+        console.log('First card fields:', card.fields);
+        console.log('First card stats:', {
+          interval: card.interval,
+          factor: card.factor,
+          repetitions: card.repetitions,
+          lapses: card.lapses
+        });
+        console.log('First card reviews count:', card.reviews?.length || 0);
+        if (card.reviews && card.reviews.length > 0) {
+          console.log('First review sample:', card.reviews[0]);
+        }
+      }
+      
+      // Anki card fields structure (9 fields):
+      // 0: Word, 1: Meaning, 2: Reading (with pitch accent), 3: Word audio
+      // 4: Example sentence, 5: Sentence reading, 6: Sentence meaning, 7: Sentence audio, 8: Image
+      const fields = card.fields || [];
+      const [word, meaning, reading, wordAudio, sentence, sentenceReading, sentenceMeaning, sentenceAudio, image] = fields;
+      
+      // Clean reading field (remove pitch accent SVG and HTML)
+      let cleanReading = stripHtmlTags(reading || '');
+      
+      // De-duplicate reading field if it's repeated (e.g., "さんさん" -> "さん")
+      if (cleanReading.length > 0 && cleanReading.length % 2 === 0) {
+        const halfLength = cleanReading.length / 2;
+        const firstHalf = cleanReading.substring(0, halfLength);
+        const secondHalf = cleanReading.substring(halfLength);
+        if (firstHalf === secondHalf) {
+          cleanReading = firstHalf;
+        }
+      }
+      
+      // Extract audio filenames from [sound:xxx.mp3] format
+      let audioFilename = null;
+      const audioMatch = wordAudio?.match(/\[sound:([^\]]+)\]/);
+      if (audioMatch) {
+        audioFilename = audioMatch[1];
+      }
+      
+      // Extract image filename
+      let imageFilename = null;
+      const imageMatch = image?.match(/src="([^"]+)"/);
+      if (imageMatch) {
+        imageFilename = imageMatch[1];
+      }
+      
+      // Clean text fields
+      const cleanSentence = stripHtmlTags(sentence || '');
+      const cleanSentenceMeaning = stripHtmlTags(sentenceMeaning || '');
+      
+      return {
+        nid: card.nid,
+        word: stripHtmlTags(word || ''),
+        reading: cleanReading,
+        meaning: stripHtmlTags(meaning || ''),
+        sentence: cleanSentence,
+        sentence_meaning: cleanSentenceMeaning,
+        audio_filename: audioFilename,
+        image_filename: imageFilename,
+        original_index: card.originalIndex,
+        rank: frequencyMap[stripHtmlTags(word || '')] || null,
+        due: card.due ? new Date(card.due).toISOString() : null,
+        interval: card.interval || 0,
+        ease_factor: (card.factor || 2500) / 1000, // Anki stores as integer (2500 = 2.5)
+        reps: card.repetitions || 0,
+        lapses: card.lapses || 0,
+        tags: '',
+        // Include review history from Anki
+        reviews: (card.reviews || []).map(review => ({
+          timestamp: review.timestamp,
+          ease: review.ease,
+          interval: review.interval,
+          response_time: review.time,
+          review_type: review.type
+        }))
+      };
+    });
 
-    if (progressCallback) progressCallback(90, `Saving ${cards.length} cards to database...`);
+    if (progressCallback) progressCallback(90, `Saving ${cards.length} cards to backend...`);
 
-    // Save all cards to IndexedDB
-    await saveMultipleCards(cards);
+    // Debug: Log first card being sent to backend
+    if (cards.length > 0) {
+      console.log('First card being sent to backend:', cards[0]);
+      console.log('First card reviews being sent:', cards[0].reviews?.length || 0);
+      if (cards[0].reviews && cards[0].reviews.length > 0) {
+        console.log('First review being sent:', cards[0].reviews[0]);
+      }
+    }
+
+    // Save cards in batches to avoid timeout (100 cards per batch)
+    const batchSize = 100;
+    const totalBatches = Math.ceil(cards.length / batchSize);
+    
+    for (let i = 0; i < cards.length; i += batchSize) {
+      const batch = cards.slice(i, i + batchSize);
+      const batchNum = Math.floor(i / batchSize) + 1;
+      
+      if (progressCallback) {
+        const progress = 90 + Math.floor((batchNum / totalBatches) * 9);
+        progressCallback(progress, `Saving batch ${batchNum}/${totalBatches} (${batch.length} cards)...`);
+      }
+      
+      await saveMultipleCards(batch);
+    }
 
     // Save import metadata
     await setMetadata('lastFullImport', Date.now());
@@ -284,124 +384,6 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
 
   } catch (error) {
     console.error('Error importing Anki deck:', error);
-    throw error;
-  }
-};
-
-/**
- * Sync only Anki statistics from a new .apkg file
- * This preserves app-specific data (answer rates, confused cards, etc.)
- * @param {File|string} source - File object or URL to .apkg file
- * @param {Function} progressCallback - Called with progress updates (0-100)
- * @returns {Promise<{updated: number, added: number}>}
- */
-export const syncAnkiStats = async (source, progressCallback = null) => {
-  try {
-    if (progressCallback) progressCallback(0, 'Loading .apkg file...');
-
-    // Load the .apkg file
-    let arrayBuffer;
-    if (typeof source === 'string') {
-      const response = await fetch(source);
-      arrayBuffer = await response.arrayBuffer();
-    } else {
-      arrayBuffer = await source.arrayBuffer();
-    }
-
-    if (progressCallback) progressCallback(20, 'Extracting archive...');
-
-    const zip = await JSZip.loadAsync(arrayBuffer);
-
-    // Find and load the database
-    const dbFiles = zip.file(/collection\.anki2.*/);
-    if (!dbFiles || dbFiles.length === 0) {
-      throw new Error("Invalid Anki deck file. Could not find 'collection.anki2*' database.");
-    }
-
-    const dbFile = dbFiles[0];
-    const dbArrayBuffer = await dbFile.async("arraybuffer");
-
-    if (progressCallback) progressCallback(40, 'Parsing Anki database...');
-
-    const SQL = await initSqlJs({
-      locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.5.0/sql-wasm.wasm`
-    });
-
-    const db = new SQL.Database(new Uint8Array(dbArrayBuffer));
-
-    // Extract Anki stats only
-    const cardsRes = db.exec("SELECT nid, due, ivl, factor, reps, lapses FROM cards");
-    const revlogRes = db.exec("SELECT id, cid, ease, ivl, lastIvl, factor, time, type FROM revlog");
-
-    if (cardsRes.length === 0 || revlogRes.length === 0) {
-      throw new Error("No data found in the cards or revlog table.");
-    }
-
-    if (progressCallback) progressCallback(60, 'Processing Anki statistics...');
-
-    // Build review log data
-    const revlogData = revlogRes[0].values.reduce((acc, row) => {
-      const [id, cid, ease, ivl, lastIvl, factor, time, type] = row;
-      if (!acc[cid]) acc[cid] = [];
-      acc[cid].push({
-        timestamp: new Date(id).toLocaleString(),
-        ease,
-        interval: ivl,
-        lastInterval: lastIvl,
-        factor,
-        time: time / 1000,
-        type
-      });
-      return acc;
-    }, {});
-
-    let updatedCount = 0;
-    let addedCount = 0;
-
-    // Update each card's Anki stats
-    const totalCards = cardsRes[0].values.length;
-    for (let i = 0; i < totalCards; i++) {
-      const row = cardsRes[0].values[i];
-      const [nid, due, interval, factor, repetitions, lapses] = row;
-
-      const ankiData = {
-        due,
-        interval,
-        factor,
-        repetitions,
-        lapses,
-        reviews: revlogData[nid] || []
-      };
-
-      const existingCard = await getCard(nid);
-      
-      if (existingCard) {
-        await updateAnkiStats(nid, ankiData);
-        updatedCount++;
-      } else {
-        // Card doesn't exist in our DB, will be added by updateAnkiStats
-        await updateAnkiStats(nid, ankiData);
-        addedCount++;
-      }
-
-      if (progressCallback && i % 100 === 0) {
-        const progress = 60 + Math.floor((i / totalCards) * 30);
-        progressCallback(progress, `Syncing card ${i + 1}/${totalCards}...`);
-      }
-    }
-
-    // Save sync metadata
-    await setMetadata('lastAnkiSync', Date.now());
-
-    if (progressCallback) progressCallback(100, 'Sync complete!');
-
-    return {
-      updated: updatedCount,
-      added: addedCount
-    };
-
-  } catch (error) {
-    console.error('Error syncing Anki stats:', error);
     throw error;
   }
 };

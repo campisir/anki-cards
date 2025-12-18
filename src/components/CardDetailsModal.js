@@ -6,18 +6,24 @@ const CardDetailsModal = ({ card, onClose }) => {
 
   if (!card) return null;
 
-  // Calculate Anki stats from review history
+  // Calculate Anki stats from imported data and review history
   const calculateAnkiStats = () => {
+    // Use imported Anki stats from backend
+    const totalReviews = card.reps || card.repetitions || 0;
+    const lapses = card.lapses || 0;
+    const currentInterval = card.interval || 0;
+    const currentEase = card.easeFactor || card.ease_factor || 0;
+    
     if (!card.reviews || card.reviews.length === 0) {
       return {
-        totalReviews: 0,
-        lapses: 0,
+        totalReviews,
+        lapses,
         avgTime: 0,
         totalTime: 0,
         firstReview: null,
         latestReview: null,
-        currentInterval: card.interval || 0,
-        currentEase: card.factor ? (card.factor / 10) : 0
+        currentInterval,
+        currentEase: (currentEase * 100) // Convert 2.5 to 250%
       };
     }
 
@@ -25,19 +31,19 @@ const CardDetailsModal = ({ card, onClose }) => {
       new Date(a.timestamp) - new Date(b.timestamp)
     );
 
-    const lapses = reviews.filter(r => r.ease === 1).length;
-    const totalTime = reviews.reduce((sum, r) => sum + (r.time || 0), 0);
+    // response_time is in milliseconds, convert to seconds for display
+    const totalTime = reviews.reduce((sum, r) => sum + ((r.response_time || r.time || 0) / 1000), 0);
     const avgTime = totalTime / reviews.length;
 
     return {
-      totalReviews: reviews.length,
+      totalReviews,
       lapses,
       avgTime: avgTime.toFixed(2),
       totalTime: (totalTime / 60).toFixed(2),
       firstReview: reviews[0].timestamp,
       latestReview: reviews[reviews.length - 1].timestamp,
-      currentInterval: card.interval || 0,
-      currentEase: card.factor ? (card.factor / 10) : 0
+      currentInterval,
+      currentEase: (currentEase * 100) // Convert 2.5 to 250%
     };
   };
 
@@ -104,7 +110,7 @@ const CardDetailsModal = ({ card, onClose }) => {
       <div className="card-details-modal">
         <div className="card-details-header">
           <h2 className="card-details-title">
-            {card.fields[0].replace(/<[^>]*>/g, '')}
+            {card.word || ''}
           </h2>
           <button className="card-details-close" onClick={onClose}>×</button>
         </div>
