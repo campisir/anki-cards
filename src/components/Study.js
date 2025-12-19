@@ -263,9 +263,11 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
     setIsCorrect(correct);
     setShowBack(true);
 
-    // Track the answer in the database
+    // Track the answer in the database with study mode
     try {
-      await updateCardStats(currentCard.nid, correct);
+      // Determine study mode based on card type
+      const studyModeType = currentCard.type || 'reading'; // reading, listening, or picture
+      await updateCardStats(currentCard.id, correct, null, studyModeType);
     } catch (error) {
       console.error('Error updating card stats:', error);
     }

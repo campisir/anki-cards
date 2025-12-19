@@ -14,6 +14,7 @@ const CardDetailsModal = ({ card, onClose }) => {
         setLoading(true);
         try {
           const details = await getCard(card.id);
+          console.log('Fetched card reviews:', details.reviews?.slice(0, 3)); // Debug: show first 3 reviews
           setFullCard({ ...card, reviews: details.reviews });
         } catch (error) {
           console.error('Error fetching card details:', error);
@@ -108,6 +109,18 @@ const CardDetailsModal = ({ card, onClose }) => {
     return types[type] || 'Unknown';
   };
 
+  const getStudyMode = (studyMode) => {
+    const modes = {
+      'reading': '📖 Reading',
+      'listening': '🎧 Listening',
+      'picture': '🖼️ Picture',
+      'anki_import': 'Anki',
+      'study': 'Study',
+      'timed': 'Timed'
+    };
+    return modes[studyMode] || studyMode || 'Unknown';
+  };
+
   // Format reviews for table
   const formattedReviews = fullCard.reviews
     ? [...fullCard.reviews]
@@ -120,6 +133,13 @@ const CardDetailsModal = ({ card, onClose }) => {
             adjustedDate.setDate(adjustedDate.getDate() - 1);
           }
           
+          // Determine which type to display - prioritize study_mode for our app reviews
+          const displayType = review.study_mode && review.study_mode !== 'anki_import' 
+            ? getStudyMode(review.study_mode)
+            : getReviewType(review.type);
+          
+          console.log('Review study_mode:', review.study_mode, '→ displayType:', displayType); // Debug
+          
           return {
             date: adjustedDate.toLocaleString('en-US', {
               year: 'numeric',
@@ -129,11 +149,11 @@ const CardDetailsModal = ({ card, onClose }) => {
               minute: '2-digit',
               hour12: false
             }).replace(',', ' @'),
-            type: getReviewType(review.type),
-            rating: review.ease,
-            interval: formatInterval(review.interval),
+            type: displayType,
+            rating: review.ease || review.quality || 'N/A',
+            interval: review.interval ? formatInterval(review.interval) : 'N/A',
             ease: review.factor ? `${review.factor / 10}%` : 'N/A',
-            time: `${review.time}s`
+            time: review.time ? `${review.time.toFixed(2)}s` : (review.response_time ? `${(review.response_time / 1000).toFixed(2)}s` : 'N/A')
           };
         })
     : [];

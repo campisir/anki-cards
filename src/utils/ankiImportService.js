@@ -160,7 +160,8 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
 
     // Extract data from Anki database
     const notesRes = db.exec("SELECT id, flds FROM notes");
-    const cardsRes = db.exec("SELECT id, nid, due, ivl, factor, reps, lapses FROM cards");
+    // Include 'ord' (card ordinal/type) to differentiate between reading and listening cards
+    const cardsRes = db.exec("SELECT id, nid, ord, due, ivl, factor, reps, lapses FROM cards");
     const revlogRes = db.exec("SELECT id, cid, ease, ivl, lastIvl, factor, time, type FROM revlog");
 
     if (notesRes.length === 0 || cardsRes.length === 0 || revlogRes.length === 0) {
@@ -178,6 +179,7 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
     // Build cards data
     const cardsData = cardsRes[0].values.map((row, index) => ({
       cid: row[0], // card ID - needed to match with revlog
+      cardOrd: row[2], // card ordinal/type (0 = first card type, 1 = second card type, etc.)
       fields: notesData[row[1]],
       nid: row[1],
       due: row[2],
@@ -224,13 +226,22 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
     cardsWithRevlog.forEach(card => {
       if (!cardsByNote.has(card.nid)) {
         // First card for this note - keep it
+        // Tag reviews with study mode based on card ordinal (0 = reading, 1 = listening)
+        card.reviews = card.reviews.map(review => ({
+          ...review,
+          studyMode: card.cardOrd === 0 ? 'reading' : 'listening'
+        }));
         cardsByNote.set(card.nid, card);
         uniqueCards.push(card);
       } else {
         // Another card for the same note (e.g., listening vs reading)
-        // Merge its reviews into the first card
+        // Merge its reviews into the first card, preserving the card type
         const existingCard = cardsByNote.get(card.nid);
-        existingCard.reviews = [...existingCard.reviews, ...card.reviews];
+        const taggedReviews = card.reviews.map(review => ({
+          ...review,
+          studyMode: card.cardOrd === 0 ? 'reading' : 'listening'
+        }));
+        existingCard.reviews = [...existingCard.reviews, ...taggedReviews];
         
         // Sum up the repetition counts and lapses
         existingCard.repetitions += card.repetitions;
@@ -375,7 +386,9 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
           ease: review.ease,
           interval: review.interval,
           response_time: review.time,
-          review_type: review.type
+          review_type: review.type,
+          ease_factor: review.factor,
+          studyMode: review.studyMode // Preserve reading/listening differentiation
         }))
       };
     }));
