@@ -179,14 +179,14 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
     // Build cards data
     const cardsData = cardsRes[0].values.map((row, index) => ({
       cid: row[0], // card ID - needed to match with revlog
+      nid: row[1], // note ID
       cardOrd: row[2], // card ordinal/type (0 = first card type, 1 = second card type, etc.)
       fields: notesData[row[1]],
-      nid: row[1],
-      due: row[2],
-      interval: row[3],
-      factor: row[4],
-      repetitions: row[5],
-      lapses: row[6],
+      due: row[3],
+      interval: row[4],
+      factor: row[5],
+      repetitions: row[6],
+      lapses: row[7],
       originalIndex: index + 1
     }));
 
@@ -224,13 +224,27 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
     const cardsByNote = new Map();
     
     cardsWithRevlog.forEach(card => {
+      const studyMode = card.cardOrd === 0 ? 'reading' : 'listening';
+      
       if (!cardsByNote.has(card.nid)) {
         // First card for this note - keep it
         // Tag reviews with study mode based on card ordinal (0 = reading, 1 = listening)
         card.reviews = card.reviews.map(review => ({
           ...review,
-          studyMode: card.cardOrd === 0 ? 'reading' : 'listening'
+          studyMode
         }));
+        
+        // Store separate stats for each card type
+        card.cardTypeStats = {
+          [studyMode]: {
+            repetitions: card.repetitions,
+            lapses: card.lapses,
+            interval: card.interval,
+            factor: card.factor,
+            due: card.due
+          }
+        };
+        
         cardsByNote.set(card.nid, card);
         uniqueCards.push(card);
       } else {
@@ -239,15 +253,22 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
         const existingCard = cardsByNote.get(card.nid);
         const taggedReviews = card.reviews.map(review => ({
           ...review,
-          studyMode: card.cardOrd === 0 ? 'reading' : 'listening'
+          studyMode
         }));
         existingCard.reviews = [...existingCard.reviews, ...taggedReviews];
         
-        // Sum up the repetition counts and lapses
+        // Store separate stats for this card type
+        existingCard.cardTypeStats[studyMode] = {
+          repetitions: card.repetitions,
+          lapses: card.lapses,
+          interval: card.interval,
+          factor: card.factor,
+          due: card.due
+        };
+        
+        // For top-level fields, use the combined/max values
         existingCard.repetitions += card.repetitions;
         existingCard.lapses += card.lapses;
-        
-        // Take the maximum interval and factor (most mature card state)
         existingCard.interval = Math.max(existingCard.interval || 0, card.interval || 0);
         existingCard.factor = Math.max(existingCard.factor || 2500, card.factor || 2500);
         
@@ -380,6 +401,8 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
         reps: card.repetitions || 0,
         lapses: card.lapses || 0,
         tags: '',
+        // Include separate stats for reading/listening cards
+        card_type_stats: card.cardTypeStats || {},
         // Include review history from Anki
         reviews: (card.reviews || []).map(review => ({
           timestamp: review.timestamp,

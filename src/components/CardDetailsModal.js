@@ -15,7 +15,8 @@ const CardDetailsModal = ({ card, onClose }) => {
         try {
           const details = await getCard(card.id);
           console.log('Fetched card reviews:', details.reviews?.slice(0, 3)); // Debug: show first 3 reviews
-          setFullCard({ ...card, reviews: details.reviews });
+          console.log('Fetched card_type_stats:', details.card_type_stats); // Debug
+          setFullCard({ ...card, reviews: details.reviews, card_type_stats: details.card_type_stats });
         } catch (error) {
           console.error('Error fetching card details:', error);
           setFullCard(card);
@@ -32,15 +33,17 @@ const CardDetailsModal = ({ card, onClose }) => {
 
   // Calculate Anki stats from imported data and review history
   const calculateAnkiStats = () => {
-    // Use imported Anki stats from backend
-    const totalReviews = fullCard.reps || fullCard.repetitions || 0;
+    // Count actual reviews instead of using merged reps field
+    const totalReviews = fullCard.reviews ? fullCard.reviews.length : 0;
     const lapses = fullCard.lapses || 0;
     const currentInterval = fullCard.interval || 0;
     const currentEase = fullCard.easeFactor || fullCard.ease_factor || 0;
     
+    console.log('fullCard.card_type_stats:', fullCard.card_type_stats); // Debug
+    
     if (!fullCard.reviews || fullCard.reviews.length === 0) {
       return {
-        totalReviews,
+        totalReviews: 0,
         lapses,
         avgTime: 0,
         totalTime: 0,
@@ -60,7 +63,7 @@ const CardDetailsModal = ({ card, onClose }) => {
     const avgTime = totalTime / reviews.length;
 
     return {
-      totalReviews,
+      totalReviews: reviews.length, // Use actual review count
       lapses,
       avgTime: avgTime.toFixed(2),
       totalTime: (totalTime / 60).toFixed(2),
@@ -206,24 +209,73 @@ const CardDetailsModal = ({ card, onClose }) => {
                     <div className="stat-label">Latest Review</div>
                     <div className="stat-value">
                       {new Date(stats.latestReview).toLocaleDateString()}
+                      {fullCard.card_type_stats && (
+                        <div style={{fontSize: '0.85em', color: '#666', marginTop: '4px'}}>
+                          {fullCard.card_type_stats.reading && fullCard.reviews?.filter(r => r.study_mode === 'reading').length > 0 && (
+                            <>📖 {new Date(Math.max(...fullCard.reviews.filter(r => r.study_mode === 'reading').map(r => new Date(r.timestamp)))).toLocaleDateString()}</>
+                          )}
+                          {fullCard.card_type_stats.reading && fullCard.card_type_stats.listening && 
+                           fullCard.reviews?.filter(r => r.study_mode === 'reading').length > 0 && 
+                           fullCard.reviews?.filter(r => r.study_mode === 'listening').length > 0 && <br />}
+                          {fullCard.card_type_stats.listening && fullCard.reviews?.filter(r => r.study_mode === 'listening').length > 0 && (
+                            <>🎧 {new Date(Math.max(...fullCard.reviews.filter(r => r.study_mode === 'listening').map(r => new Date(r.timestamp)))).toLocaleDateString()}</>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
                 <div className="stat-item">
                   <div className="stat-label">Interval</div>
-                  <div className="stat-value">{formatInterval(stats.currentInterval)}</div>
+                  <div className="stat-value">
+                    {formatInterval(stats.currentInterval)}
+                    {fullCard.card_type_stats && (
+                      <div style={{fontSize: '0.85em', color: '#666', marginTop: '4px'}}>
+                        {fullCard.card_type_stats.reading && `📖 ${formatInterval(fullCard.card_type_stats.reading.interval || 0)}`}
+                        {fullCard.card_type_stats.reading && fullCard.card_type_stats.listening && <br />}
+                        {fullCard.card_type_stats.listening && `🎧 ${formatInterval(fullCard.card_type_stats.listening.interval || 0)}`}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="stat-item">
                   <div className="stat-label">Ease</div>
-                  <div className="stat-value">{stats.currentEase}%</div>
+                  <div className="stat-value">
+                    {stats.currentEase}%
+                    {fullCard.card_type_stats && (
+                      <div style={{fontSize: '0.85em', color: '#666', marginTop: '4px'}}>
+                        {fullCard.card_type_stats.reading && `📖 ${((fullCard.card_type_stats.reading.factor || 2500) / 10).toFixed(0)}%`}
+                        {fullCard.card_type_stats.reading && fullCard.card_type_stats.listening && ' / '}
+                        {fullCard.card_type_stats.listening && `🎧 ${((fullCard.card_type_stats.listening.factor || 2500) / 10).toFixed(0)}%`}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="stat-item">
                   <div className="stat-label">Reviews</div>
-                  <div className="stat-value">{stats.totalReviews}</div>
+                  <div className="stat-value">
+                    {stats.totalReviews}
+                    {fullCard.card_type_stats && (
+                      <div style={{fontSize: '0.85em', color: '#666', marginTop: '4px'}}>
+                        {fullCard.card_type_stats.reading && `📖 ${fullCard.reviews?.filter(r => r.study_mode === 'reading').length || 0}`}
+                        {fullCard.card_type_stats.reading && fullCard.card_type_stats.listening && ' / '}
+                        {fullCard.card_type_stats.listening && `🎧 ${fullCard.reviews?.filter(r => r.study_mode === 'listening').length || 0}`}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="stat-item">
                   <div className="stat-label">Lapses</div>
-                  <div className="stat-value">{stats.lapses}</div>
+                  <div className="stat-value">
+                    {stats.lapses}
+                    {fullCard.card_type_stats && (
+                      <div style={{fontSize: '0.85em', color: '#666', marginTop: '4px'}}>
+                        {fullCard.card_type_stats.reading && `📖 ${fullCard.card_type_stats.reading.lapses || 0}`}
+                        {fullCard.card_type_stats.reading && fullCard.card_type_stats.listening && ' / '}
+                        {fullCard.card_type_stats.listening && `🎧 ${fullCard.card_type_stats.listening.lapses || 0}`}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="stat-item">
                   <div className="stat-label">Average Time</div>
