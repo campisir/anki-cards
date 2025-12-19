@@ -25,6 +25,10 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
   const [searchResults, setSearchResults] = useState([]);
   const [confusedCardsList, setConfusedCardsList] = useState([]);
   const [allCardsForSearch, setAllCardsForSearch] = useState([]);
+  
+  // Homophones feature
+  const [showHomophonesList, setShowHomophonesList] = useState(false);
+  const [homophonesList, setHomophonesList] = useState([]);
 
   useEffect(() => {
     if (cards.length === 0) return;
@@ -348,6 +352,32 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
     setShowConfusedList(!showConfusedList);
   };
 
+  // Homophones functionality
+  const findHomophones = () => {
+    const currentCard = shuffledCards[currentCardIndex];
+    const currentReading = (currentCard.reading || getField(currentCard, 2) || '').trim();
+    
+    if (!currentReading) {
+      setHomophonesList([]);
+      return;
+    }
+    
+    // Find all cards with the same reading
+    const homophones = allCardsForSearch.filter(card => {
+      const cardReading = (card.reading || getField(card, 2) || '').trim();
+      return cardReading === currentReading && card.nid !== currentCard.nid;
+    });
+    
+    setHomophonesList(homophones);
+  };
+
+  const handleToggleHomophonesList = () => {
+    if (!showHomophonesList) {
+      findHomophones();
+    }
+    setShowHomophonesList(!showHomophonesList);
+  };
+
   if (shuffledCards.length === 0) {
     return <div>Loading...</div>;
   }
@@ -517,6 +547,61 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
                             <td className="date-cell">
                               {new Date(card.lastConfused).toLocaleDateString()}
                             </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </details>
+      </div>
+
+      {/* Homophones Section */}
+      <div className="confused-cards-section">
+        <details className="confused-details">
+          <summary className="confused-summary">
+            Homophones (Same Reading)
+          </summary>
+          <div className="confused-content">
+            <div className="confused-actions">
+              <button 
+                className="confused-action-button view-confused"
+                onClick={handleToggleHomophonesList}
+                title="Show all cards with the same pronunciation"
+              >
+                📋 {showHomophonesList ? 'Hide List' : 'View List'}
+              </button>
+            </div>
+
+            {/* Homophones List Table */}
+            {showHomophonesList && (
+              <div className="confused-list-container">
+                <h4>Cards with same reading: {shuffledCards[currentCardIndex].reading || getField(shuffledCards[currentCardIndex], 2)}</h4>
+                {homophonesList.length === 0 ? (
+                  <p className="no-confused">No homophones found.</p>
+                ) : (
+                  <div className="confused-table-wrapper">
+                    <table className="confused-table">
+                      <thead>
+                        <tr>
+                          <th>Word</th>
+                          <th>Meaning</th>
+                          <th>Index</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {homophonesList.map((card) => (
+                          <tr key={card.nid}>
+                            <td>
+                              <span dangerouslySetInnerHTML={{ __html: getField(card, 0) }} />
+                            </td>
+                            <td>
+                              <span dangerouslySetInnerHTML={{ __html: getField(card, 1) }} />
+                            </td>
+                            <td className="count-cell">#{card.originalIndex}</td>
                           </tr>
                         ))}
                       </tbody>
