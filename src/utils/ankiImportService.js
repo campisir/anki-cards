@@ -224,11 +224,11 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
     const cardsByNote = new Map();
     
     cardsWithRevlog.forEach(card => {
-      const studyMode = card.cardOrd === 0 ? 'reading' : 'listening';
+      const studyMode = card.cardOrd === 0 ? 'listening' : 'reading';
       
       if (!cardsByNote.has(card.nid)) {
         // First card for this note - keep it
-        // Tag reviews with study mode based on card ordinal (0 = reading, 1 = listening)
+        // Tag reviews with study mode based on card ordinal (0 = listening, 1 = reading)
         card.reviews = card.reviews.map(review => ({
           ...review,
           studyMode
