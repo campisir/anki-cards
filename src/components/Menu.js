@@ -238,7 +238,7 @@ function Menu({
   const renderFlashcardConfig = () => (
     <div className="config-view">
       <button className="back-button" onClick={() => setCurrentView('main')}>
-        ← Back to Menu
+        Back to Menu
       </button>
       
       <h1 className="config-title">🗂️ Flashcard Study Configuration</h1>
@@ -370,7 +370,7 @@ function Menu({
   const renderTimedListeningConfig = () => (
     <div className="config-view">
       <button className="back-button" onClick={() => setCurrentView('main')}>
-        ← Back to Menu
+        Back to Menu
       </button>
       
       <h1 className="config-title">⏱️ Timed Listening Configuration</h1>
@@ -418,7 +418,7 @@ function Menu({
   const renderExampleSentencesConfig = () => (
     <div className="config-view">
       <button className="back-button" onClick={() => setCurrentView('main')}>
-        ← Back to Menu
+        Back to Menu
       </button>
       
       <h1 className="config-title">📖 Example Sentences Configuration</h1>

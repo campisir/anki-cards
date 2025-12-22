@@ -175,7 +175,7 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
     <div className="study">
       <div className="study-header">
         <button className="back-button" onClick={onBackToMenu}>
-          ← Back to Menu
+          Back to Menu
         </button>
         <button className="shuffle-button" onClick={handleShuffleCards}>
           🔀 Shuffle Cards

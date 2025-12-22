@@ -57,9 +57,28 @@ function Settings({ onBackToMenu }) {
       
       const result = await importAnkiDeck(selectedFile, handleProgressUpdate);
 
+      let successText = '';
+      if (result.imported > 0 && result.updated > 0) {
+        // Mixed: some new cards, some updated
+        successText = `Import complete! ${result.imported} new cards imported, ${result.updated} cards updated`;
+      } else if (result.imported > 0) {
+        // All new cards
+        successText = `Successfully imported ${result.imported} new cards!`;
+      } else if (result.updated > 0) {
+        // All updated
+        successText = `Successfully updated ${result.updated} cards`;
+      } else {
+        // No changes
+        successText = `Import complete - no changes detected`;
+      }
+      
+      if (result.new_reviews > 0) {
+        successText += ` (${result.new_reviews} new reviews added)`;
+      }
+
       setMessage({ 
         type: 'success', 
-        text: `Successfully imported ${result.cards} cards to backend!` 
+        text: successText
       });
 
       // Refresh status
@@ -99,7 +118,7 @@ function Settings({ onBackToMenu }) {
       <div className="settings-header">
         <h1>Settings</h1>
         <button className="back-button" onClick={onBackToMenu}>
-          ← Back to Menu
+          Back to Menu
         </button>
       </div>
 

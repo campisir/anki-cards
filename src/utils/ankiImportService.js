@@ -430,6 +430,9 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
     // Save cards in batches to avoid timeout (100 cards per batch)
     const batchSize = 100;
     const totalBatches = Math.ceil(cards.length / batchSize);
+    let totalImported = 0;
+    let totalUpdated = 0;
+    let totalNewReviews = 0;
     
     for (let i = 0; i < cards.length; i += batchSize) {
       const batch = cards.slice(i, i + batchSize);
@@ -440,7 +443,11 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
         progressCallback(progress, `Saving batch ${batchNum}/${totalBatches} (${batch.length} cards)...`);
       }
       
-      await saveMultipleCards(batch);
+      const response = await saveMultipleCards(batch);
+      // Accumulate stats from each batch
+      totalImported += response.imported || 0;
+      totalUpdated += response.updated || 0;
+      totalNewReviews += response.new_reviews || 0;
     }
 
     // Save import metadata
@@ -459,6 +466,9 @@ export const importAnkiDeck = async (source, progressCallback = null) => {
 
     return {
       cards: cards.length,
+      imported: totalImported,
+      updated: totalUpdated,
+      new_reviews: totalNewReviews,
       media: mediaUrls
     };
 

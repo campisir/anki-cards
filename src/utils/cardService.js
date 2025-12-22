@@ -124,11 +124,12 @@ export const saveCard = async (card) => {
 /**
  * Save multiple cards at once (bulk import)
  * @param {Array} cards 
- * @returns {Promise<void>}
+ * @returns {Promise<Object>} Import result with imported/updated/new_reviews counts
  */
 export const saveMultipleCards = async (cards) => {
   try {
-    await api.importCards(cards);
+    const result = await api.importCards(cards);
+    return result;
   } catch (error) {
     console.error('Error saving multiple cards:', error);
     throw error;
