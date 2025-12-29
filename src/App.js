@@ -101,6 +101,19 @@ function App() {
     let isMounted = true;
 
     const loadData = async () => {
+      // Only load data if authenticated
+      if (!isAuthenticated) {
+        if (isMounted) {
+          setLoading(false);
+        }
+        return;
+      }
+      
+      // Set loading to true when starting to load
+      if (isMounted) {
+        setLoading(true);
+      }
+      
       try {
         // Load cards from backend API
         const cardsFromDB = await getAllCards();
@@ -213,7 +226,7 @@ function App() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isAuthenticated]); // Re-run when authentication status changes
 
   const parseRange = (range) => {
     const [start, end] = range.split('-').map(Number);

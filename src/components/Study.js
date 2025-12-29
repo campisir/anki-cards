@@ -29,6 +29,7 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
   // Homophones feature
   const [showHomophonesList, setShowHomophonesList] = useState(false);
   const [homophonesList, setHomophonesList] = useState([]);
+  const [loadingConfusedCards, setLoadingConfusedCards] = useState(false);
 
   useEffect(() => {
     if (cards.length === 0) return;
@@ -71,6 +72,13 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
   useEffect(() => {
     if (shuffledCards.length > 0) {
       loadConfusedCards();
+    }
+  }, [currentCardIndex, shuffledCards]);
+  
+  // Update homophones whenever current card changes
+  useEffect(() => {
+    if (shuffledCards.length > 0 && showHomophonesList) {
+      findHomophones();
     }
   }, [currentCardIndex, shuffledCards]);
 
@@ -323,6 +331,7 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
   };
 
   const loadConfusedCards = async () => {
+    setLoadingConfusedCards(true);
     const currentCard = shuffledCards[currentCardIndex];
     try {
       const confused = await getConfusedCards(currentCard.nid);
@@ -330,6 +339,8 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
     } catch (error) {
       console.error('Error loading confused cards:', error);
       setConfusedCardsList([]);
+    } finally {
+      setLoadingConfusedCards(false);
     }
   };
 
@@ -345,11 +356,11 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
     setSearchResults([]);
   };
 
-  const handleToggleConfusedList = async () => {
-    if (!showConfusedList) {
-      await loadConfusedCards();
-    }
+  const handleToggleConfusedList = () => {
     setShowConfusedList(!showConfusedList);
+    if (!showConfusedList) {
+      loadConfusedCards(); // Load async, don't block modal display
+    }
   };
 
   // Homophones functionality
@@ -397,6 +408,30 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
       
       <div className="card-container">
         <div className="card" onClick={handleFlipCard}>
+          {/* Homophones icon - top right */}
+          <div 
+            className="card-corner-icon top-right-icon" 
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleHomophonesList();
+            }}
+            title="Homophones (same pronunciation)"
+          >
+            <i className="fas fa-language"></i>
+          </div>
+          
+          {/* Confused cards icon - bottom left */}
+          <div 
+            className="card-corner-icon bottom-left-icon" 
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleConfusedList();
+            }}
+            title={`Confused cards (${confusedCardsList.length})`}
+          >
+            <i className="fas fa-random"></i> {confusedCardsList.length > 0 && <span className="badge">{confusedCardsList.length}</span>}
+          </div>
+          
           {showBack ? (
             <div>
               <div className="word-audio-icon" onClick={(event) => handlePlayAudio(wordAudioRef, event)}>
@@ -491,8 +526,111 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
         </button>
       </div>
 
+      {/* Confused Cards Modal */}
+      {showConfusedList && (
+        <div className="confused-dialog-overlay" onClick={() => setShowConfusedList(false)}>
+          <div className="confused-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="confused-dialog-header">
+              <h3>Confused Cards ({confusedCardsList.length})</h3>
+              <button className="close-button" onClick={() => setShowConfusedList(false)}>✕</button>
+            </div>
+            
+            <div className="confused-actions">
+              <button 
+                className="confused-action-button add-confused"
+                onClick={() => {
+                  setShowConfusedList(false);
+                  handleShowConfusedDialog();
+                }}
+                title="Mark a card that you confused with this one"
+              >
+                ➕ Add Confused Card
+              </button>
+            </div>
+
+            {confusedCardsList.length === 0 ? (
+              <p className="no-confused">No confused cards yet. Click "Add Confused Card" to mark cards you confuse with this one.</p>
+            ) : (
+              <div className="confused-table-wrapper">
+                <table className="confused-table">
+                  <thead>
+                    <tr>
+                      <th>Word</th>
+                      <th>Meaning</th>
+                      <th>Confused Count</th>
+                      <th>Last Confused</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {confusedCardsList.map((card) => (
+                      <tr key={card.nid}>
+                        <td>
+                          <span dangerouslySetInnerHTML={{ __html: getField(card, 0) }} />
+                        </td>
+                        <td>
+                          <span dangerouslySetInnerHTML={{ __html: getField(card, 1) }} />
+                        </td>
+                        <td className="count-cell">{card.confusionCount}x</td>
+                        <td className="date-cell">
+                          {new Date(card.lastConfused).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Homophones Modal */}
+      {showHomophonesList && (
+        <div className="confused-dialog-overlay" onClick={() => setShowHomophonesList(false)}>
+          <div className="confused-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="confused-dialog-header">
+              <h3>Homophones (Same Reading)</h3>
+              <button className="close-button" onClick={() => setShowHomophonesList(false)}>✕</button>
+            </div>
+            
+            <h4 style={{marginBottom: '1rem', color: '#666'}}>
+              Cards with same reading: {shuffledCards[currentCardIndex].reading || getField(shuffledCards[currentCardIndex], 2)}
+            </h4>
+            
+            {homophonesList.length === 0 ? (
+              <p className="no-confused">No other words found with this pronunciation.</p>
+            ) : (
+              <div className="confused-table-wrapper">
+                <table className="confused-table">
+                  <thead>
+                    <tr>
+                      <th>Word</th>
+                      <th>Meaning</th>
+                      <th>Index</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {homophonesList.map((card) => (
+                      <tr key={card.nid}>
+                        <td>
+                          <span dangerouslySetInnerHTML={{ __html: getField(card, 0) }} />
+                        </td>
+                        <td>
+                          <span dangerouslySetInnerHTML={{ __html: getField(card, 1) }} />
+                        </td>
+                        <td className="count-cell">#{card.originalIndex}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Confused Cards Section - Compact Version */}
-      <div className="confused-cards-section">
+      <div className="confused-cards-section" style={{display: 'none'}}>
         <details className="confused-details">
           <summary className="confused-summary">
             Confused Cards ({confusedCardsList.length})
@@ -521,7 +659,12 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
             {showConfusedList && (
               <div className="confused-list-container">
                 <h4>Cards Confused With This One</h4>
-                {confusedCardsList.length === 0 ? (
+                {loadingConfusedCards ? (
+                  <div className="loading-spinner" style={{ padding: '20px', textAlign: 'center' }}>
+                    <i className="fas fa-spinner fa-spin" style={{ fontSize: '24px', color: '#007bff' }}></i>
+                    <p style={{ marginTop: '10px' }}>Loading confused cards...</p>
+                  </div>
+                ) : confusedCardsList.length === 0 ? (
                   <p className="no-confused">No confused cards yet.</p>
                 ) : (
                   <div className="confused-table-wrapper">
@@ -560,7 +703,7 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
       </div>
 
       {/* Homophones Section */}
-      <div className="confused-cards-section">
+      <div className="confused-cards-section" style={{display: 'none'}}>
         <details className="confused-details">
           <summary className="confused-summary">
             Homophones (Same Reading)
