@@ -122,13 +122,25 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
           // Fetch word audio if card has it
           if (currentCard.audio_filename || currentCard.audioFilename) {
             const url = await getWordAudioUrl(currentCard.id);
+            console.log('[MEDIA FETCH] Word audio URL:', url);
             setWordAudioUrl(url);
           }
           
-          // Fetch sentence audio if card has it
-          if (currentCard.sentence_audio_filename || currentCard.sentenceAudioFilename) {
-            const url = await getSentenceAudioUrl(currentCard.id);
-            setSentenceAudioUrl(url);
+          // Fetch sentence audio if card has a sentence (field 4)
+          const sentenceField = getField(currentCard, 4);
+          console.log('[MEDIA FETCH] Checking for sentence audio. Has sentence field:', !!sentenceField);
+          if (sentenceField && sentenceField.trim()) {
+            console.log('[MEDIA FETCH] Fetching sentence audio for card:', currentCard.id);
+            try {
+              const url = await getSentenceAudioUrl(currentCard.id);
+              console.log('[MEDIA FETCH] Sentence audio URL:', url);
+              setSentenceAudioUrl(url);
+            } catch (err) {
+              console.log('[MEDIA FETCH] No sentence audio available for this card');
+              setSentenceAudioUrl(null);
+            }
+          } else {
+            console.log('[MEDIA FETCH] No sentence field found on card');
           }
           
           // Fetch image if card has it
@@ -315,13 +327,19 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
     // Auto-play word audio then sentence audio when flipping to back
     if (wasShowingFront) {
       setTimeout(() => {
+        console.log('[FLIP] Attempting to play audio. wordAudioRef:', !!wordAudioRef.current, 'sentenceAudioRef:', !!sentenceAudioRef.current, 'sentenceAudioUrl:', sentenceAudioUrl);
         if (wordAudioRef.current) {
-          wordAudioRef.current.play().catch(err => console.log('Audio play failed:', err));
+          console.log('[FLIP] Playing word audio');
+          wordAudioRef.current.play().catch(err => console.log('[FLIP] Audio play failed:', err));
           
           // Play sentence audio after word audio finishes
           wordAudioRef.current.onended = () => {
+            console.log('[FLIP] Word audio ended. Checking sentence audio - ref:', !!sentenceAudioRef.current, 'url:', sentenceAudioUrl);
             if (sentenceAudioRef.current && sentenceAudioUrl) {
-              sentenceAudioRef.current.play().catch(err => console.log('Sentence audio play failed:', err));
+              console.log('[FLIP] Playing sentence audio');
+              sentenceAudioRef.current.play().catch(err => console.log('[FLIP] Sentence audio play failed:', err));
+            } else {
+              console.log('[FLIP] Sentence audio not available');
             }
           };
         }
