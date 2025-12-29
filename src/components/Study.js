@@ -16,6 +16,7 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
   const sentenceAudioRef = useRef(null);
   const listeningAudioRef = useRef(null);
   const frontAudioRef = useRef(null);
+  const preloadAudioRef = useRef(null);
   const answerInputRef = useRef(null);
   
   // Confused cards feature
@@ -87,8 +88,32 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
     const fetchMediaUrls = async () => {
       if (shuffledCards.length > 0) {
         const currentCard = shuffledCards[currentCardIndex];
+        console.log('[MEDIA FETCH] Card changed to index:', currentCardIndex, 'type:', currentCard.type);
+        
+        // Stop all audio before changing cards
+        if (wordAudioRef.current) {
+          console.log('[MEDIA FETCH] Stopping wordAudio');
+          wordAudioRef.current.pause();
+          wordAudioRef.current.currentTime = 0;
+        }
+        if (sentenceAudioRef.current) {
+          console.log('[MEDIA FETCH] Stopping sentenceAudio');
+          sentenceAudioRef.current.pause();
+          sentenceAudioRef.current.currentTime = 0;
+        }
+        if (listeningAudioRef.current) {
+          console.log('[MEDIA FETCH] Stopping listeningAudio, paused:', listeningAudioRef.current.paused);
+          listeningAudioRef.current.pause();
+          listeningAudioRef.current.currentTime = 0;
+        }
+        if (frontAudioRef.current) {
+          console.log('[MEDIA FETCH] Stopping frontAudio');
+          frontAudioRef.current.pause();
+          frontAudioRef.current.currentTime = 0;
+        }
         
         // Clear previous URLs
+        console.log('[MEDIA FETCH] Clearing previous URLs');
         setWordAudioUrl(null);
         setSentenceAudioUrl(null);
         setImageUrl(null);
@@ -111,6 +136,18 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
             const url = await getCardImageUrl(currentCard.id);
             setImageUrl(url);
           }
+          
+          // Preload next card's audio if it's a listening card
+          if (currentCardIndex + 1 < shuffledCards.length) {
+            const nextCard = shuffledCards[currentCardIndex + 1];
+            if (nextCard.type === 'listening' && (nextCard.audio_filename || nextCard.audioFilename)) {
+              const nextUrl = await getWordAudioUrl(nextCard.id);
+              if (preloadAudioRef.current) {
+                preloadAudioRef.current.src = nextUrl;
+                preloadAudioRef.current.load();
+              }
+            }
+          }
         } catch (error) {
           console.error('Error fetching media:', error);
         }
@@ -121,8 +158,23 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
   }, [currentCardIndex, shuffledCards]);
 
   useEffect(() => {
-    if (shuffledCards.length > 0 && shuffledCards[currentCardIndex].type === 'listening' && listeningAudioRef.current) {
-      listeningAudioRef.current.play();
+    console.log('[AUTO-PLAY] Effect triggered. cardIndex:', currentCardIndex, 'type:', shuffledCards[currentCardIndex]?.type, 'wordAudioUrl:', wordAudioUrl);
+    if (shuffledCards.length > 0 && shuffledCards[currentCardIndex].type === 'listening' && listeningAudioRef.current && wordAudioUrl) {
+      console.log('[AUTO-PLAY] Attempting to play listening audio');
+      // Small delay to ensure audio is loaded
+      const playTimer = setTimeout(() => {
+        if (listeningAudioRef.current && listeningAudioRef.current.readyState >= 2) {
+          console.log('[AUTO-PLAY] Playing audio now, readyState:', listeningAudioRef.current.readyState);
+          listeningAudioRef.current.play().catch(err => console.log('[AUTO-PLAY] Auto-play prevented:', err));
+        } else {
+          console.log('[AUTO-PLAY] Audio not ready, readyState:', listeningAudioRef.current?.readyState);
+        }
+      }, 100);
+      
+      return () => {
+        console.log('[AUTO-PLAY] Cleanup timer');
+        clearTimeout(playTimer);
+      };
     }
   }, [currentCardIndex, shuffledCards, wordAudioUrl]);
 
@@ -179,10 +231,40 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
   }, [shuffledCards, currentCardIndex, showBack, isCorrect, gradedMode, userAnswer]);
 
   const handleNextCard = () => {
+    console.log('[NEXT] Starting navigation, currentCardIndex:', currentCardIndex);
+    // Stop all audio immediately before changing cards
+    if (wordAudioRef.current) {
+      console.log('[NEXT] Stopping wordAudio, paused:', wordAudioRef.current.paused, 'currentTime:', wordAudioRef.current.currentTime);
+      wordAudioRef.current.pause();
+      wordAudioRef.current.currentTime = 0;
+    }
+    if (sentenceAudioRef.current) {
+      console.log('[NEXT] Stopping sentenceAudio');
+      sentenceAudioRef.current.pause();
+      sentenceAudioRef.current.currentTime = 0;
+    }
+    if (listeningAudioRef.current) {
+      console.log('[NEXT] Stopping listeningAudio, paused:', listeningAudioRef.current.paused, 'currentTime:', listeningAudioRef.current.currentTime);
+      listeningAudioRef.current.pause();
+      listeningAudioRef.current.currentTime = 0;
+    }
+    if (frontAudioRef.current) {
+      console.log('[NEXT] Stopping frontAudio');
+      frontAudioRef.current.pause();
+      frontAudioRef.current.currentTime = 0;
+    }
+    
+    // Clear URLs immediately to prevent auto-play from using old URL
+    console.log('[NEXT] Clearing audio URLs');
+    setWordAudioUrl(null);
+    setSentenceAudioUrl(null);
+    setImageUrl(null);
+    
     setShowBack(false);
     setShowPronunciation(false);
     setUserAnswer('');
     setIsCorrect(null);
+    console.log('[NEXT] About to change card index from', currentCardIndex, 'to', (currentCardIndex + 1) % shuffledCards.length);
     setCurrentCardIndex((prevIndex) => (prevIndex + 1) % shuffledCards.length);
     if (answerInputRef.current) {
       answerInputRef.current.focus();
@@ -190,6 +272,29 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
   };
 
   const handlePreviousCard = () => {
+    // Stop all audio immediately before changing cards
+    if (wordAudioRef.current) {
+      wordAudioRef.current.pause();
+      wordAudioRef.current.currentTime = 0;
+    }
+    if (sentenceAudioRef.current) {
+      sentenceAudioRef.current.pause();
+      sentenceAudioRef.current.currentTime = 0;
+    }
+    if (listeningAudioRef.current) {
+      listeningAudioRef.current.pause();
+      listeningAudioRef.current.currentTime = 0;
+    }
+    if (frontAudioRef.current) {
+      frontAudioRef.current.pause();
+      frontAudioRef.current.currentTime = 0;
+    }
+    
+    // Clear URLs immediately to prevent auto-play from using old URL
+    setWordAudioUrl(null);
+    setSentenceAudioUrl(null);
+    setImageUrl(null);
+    
     setShowBack(false);
     setShowPronunciation(false);
     setUserAnswer('');
@@ -479,9 +584,11 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
               )}
               {currentCard.type === 'listening' && (
                 <>
-                  <audio ref={listeningAudioRef} controls src={wordAudioUrl}></audio>
+                  <audio ref={listeningAudioRef} controls src={wordAudioUrl} preload="auto"></audio>
                 </>
               )}
+              {/* Hidden audio element for preloading next card */}
+              <audio ref={preloadAudioRef} style={{display: 'none'}} preload="auto"></audio>
               {currentCard.type === 'picture' && (
                 <>
                   {imageUrl && <p><img src={imageUrl} alt="Card" style={{ maxWidth: '100%', height: 'auto' }} /></p>}
