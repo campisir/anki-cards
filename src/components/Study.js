@@ -30,6 +30,7 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
   // Homophones feature
   const [showHomophonesList, setShowHomophonesList] = useState(false);
   const [homophonesList, setHomophonesList] = useState([]);
+  const [sameTermList, setSameTermList] = useState([]);
   const [loadingConfusedCards, setLoadingConfusedCards] = useState(false);
 
   useEffect(() => {
@@ -490,19 +491,28 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
   const findHomophones = () => {
     const currentCard = shuffledCards[currentCardIndex];
     const currentReading = (currentCard.reading || getField(currentCard, 2) || '').trim();
+    const currentTerm = (getField(currentCard, 0) || '').trim();
     
-    if (!currentReading) {
+    if (!currentReading && !currentTerm) {
       setHomophonesList([]);
+      setSameTermList([]);
       return;
     }
     
-    // Find all cards with the same reading
+    // Find all cards with the same reading (homophones)
     const homophones = allCardsForSearch.filter(card => {
       const cardReading = (card.reading || getField(card, 2) || '').trim();
-      return cardReading === currentReading && card.nid !== currentCard.nid;
+      return currentReading && cardReading === currentReading && card.nid !== currentCard.nid;
+    });
+    
+    // Find all cards with the same term but different reading/meaning
+    const sameTermCards = allCardsForSearch.filter(card => {
+      const cardTerm = (getField(card, 0) || '').trim();
+      return currentTerm && cardTerm === currentTerm && card.nid !== currentCard.nid;
     });
     
     setHomophonesList(homophones);
+    setSameTermList(sameTermCards);
   };
 
   const handleToggleHomophonesList = () => {
@@ -714,40 +724,85 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
         <div className="confused-dialog-overlay" onClick={() => setShowHomophonesList(false)}>
           <div className="confused-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="confused-dialog-header">
-              <h3>Homophones (Same Reading)</h3>
+              <h3>Related Words</h3>
               <button className="close-button" onClick={() => setShowHomophonesList(false)}>✕</button>
             </div>
             
-            <h4 style={{marginBottom: '1rem', color: '#666'}}>
-              Cards with same reading: {shuffledCards[currentCardIndex].reading || getField(shuffledCards[currentCardIndex], 2)}
-            </h4>
-            
-            {homophonesList.length === 0 ? (
-              <p className="no-confused">No other words found with this pronunciation.</p>
-            ) : (
-              <div className="confused-table-wrapper">
-                <table className="confused-table">
-                  <thead>
-                    <tr>
-                      <th>Word</th>
-                      <th>Meaning</th>
-                      <th>Index</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {homophonesList.map((card) => (
-                      <tr key={card.nid}>
-                        <td>
-                          <span dangerouslySetInnerHTML={{ __html: getField(card, 0) }} />
-                        </td>
-                        <td>
-                          <span dangerouslySetInnerHTML={{ __html: getField(card, 1) }} />
-                        </td>
-                        <td className="count-cell">#{card.originalIndex}</td>
+            {/* Homophones Section */}
+            <div style={{marginBottom: '2rem'}}>
+              <h4 style={{marginBottom: '1rem', color: '#333', borderBottom: '2px solid #007bff', paddingBottom: '0.5rem'}}>
+                Same Reading: {shuffledCards[currentCardIndex].reading || getField(shuffledCards[currentCardIndex], 2)}
+              </h4>
+              
+              {homophonesList.length === 0 ? (
+                <p className="no-confused">No other words found with this pronunciation.</p>
+              ) : (
+                <div className="confused-table-wrapper">
+                  <table className="confused-table">
+                    <thead>
+                      <tr>
+                        <th>Word</th>
+                        <th>Reading</th>
+                        <th>Meaning</th>
+                        <th>Index</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {homophonesList.map((card) => (
+                        <tr key={card.nid}>
+                          <td>
+                            <span dangerouslySetInnerHTML={{ __html: getField(card, 0) }} />
+                          </td>
+                          <td>
+                            <span dangerouslySetInnerHTML={{ __html: card.reading || getField(card, 2) }} />
+                          </td>
+                          <td>
+                            <span dangerouslySetInnerHTML={{ __html: getField(card, 1) }} />
+                          </td>
+                          <td className="count-cell">#{card.originalIndex}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            
+            {/* Same Term Section */}
+            {sameTermList.length > 0 && (
+              <div>
+                <h4 style={{marginBottom: '1rem', color: '#333', borderBottom: '2px solid #28a745', paddingBottom: '0.5rem'}}>
+                  Same Term: <span dangerouslySetInnerHTML={{ __html: getField(shuffledCards[currentCardIndex], 0) }} />
+                </h4>
+                
+                <div className="confused-table-wrapper">
+                  <table className="confused-table">
+                    <thead>
+                      <tr>
+                        <th>Word</th>
+                        <th>Reading</th>
+                        <th>Meaning</th>
+                        <th>Index</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sameTermList.map((card) => (
+                        <tr key={card.nid}>
+                          <td>
+                            <span dangerouslySetInnerHTML={{ __html: getField(card, 0) }} />
+                          </td>
+                          <td>
+                            <span dangerouslySetInnerHTML={{ __html: card.reading || getField(card, 2) }} />
+                          </td>
+                          <td>
+                            <span dangerouslySetInnerHTML={{ __html: getField(card, 1) }} />
+                          </td>
+                          <td className="count-cell">#{card.originalIndex}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
