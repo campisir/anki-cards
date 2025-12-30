@@ -174,20 +174,13 @@ export const addConfusedCards = async (cardId1, cardId2) => {
 
 /**
  * Get all cards confused with a specific card
- * @param {number} cardId - Backend database ID
+ * @param {number} nid - Card nid (note ID from Anki)
  * @returns {Promise<Array>}
  */
-export const getConfusedCards = async (cardId) => {
+export const getConfusedCards = async (nid) => {
   try {
-    const response = await api.getConfusedPairs();
-    const pairs = response.pairs || [];
-    
-    // Filter pairs involving this card
-    const relevantPairs = pairs.filter(
-      pair => pair.card_id_1 === cardId || pair.card_id_2 === cardId
-    );
-    
-    return relevantPairs;
+    const confusedCards = await api.getConfusedCardsByNid(nid);
+    return confusedCards || [];
   } catch (error) {
     console.error('Error getting confused cards:', error);
     return [];

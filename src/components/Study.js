@@ -439,7 +439,16 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
     }
 
     try {
-      await addConfusedCards(currentCard.nid, confusedCardNid);
+      // Find the confused card to get its backend ID
+      const confusedCard = allCardsForSearch.find(c => c.nid === confusedCardNid);
+      
+      if (!confusedCard || !confusedCard.id || !currentCard.id) {
+        alert('Unable to find card IDs. Please try again.');
+        return;
+      }
+      
+      // Use backend database IDs, not nids
+      await addConfusedCards(currentCard.id, confusedCard.id);
       setShowConfusedDialog(false);
       setConfusedSearch('');
       setSearchResults([]);
@@ -540,6 +549,24 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
       </div>
       
       <div className="card-container">
+        {/* Card progress counter */}
+        <div style={{
+          position: 'absolute',
+          top: '10px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          fontSize: '0.9rem',
+          color: '#666',
+          fontWeight: '500',
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          padding: '5px 12px',
+          borderRadius: '15px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          zIndex: 10
+        }}>
+          {currentCardIndex + 1} / {shuffledCards.length}
+        </div>
+        
         <div className="card" onClick={handleFlipCard}>
           {/* Homophones icon - top right */}
           <div 
@@ -700,10 +727,10 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
                     {confusedCardsList.map((card) => (
                       <tr key={card.nid}>
                         <td>
-                          <span dangerouslySetInnerHTML={{ __html: getField(card, 0) }} />
+                          <span dangerouslySetInnerHTML={{ __html: card.word || '' }} />
                         </td>
                         <td>
-                          <span dangerouslySetInnerHTML={{ __html: getField(card, 1) }} />
+                          <span dangerouslySetInnerHTML={{ __html: card.meaning || '' }} />
                         </td>
                         <td className="count-cell">{card.confusionCount}x</td>
                         <td className="date-cell">

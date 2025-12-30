@@ -176,6 +176,12 @@ export const getConfusedPairs = async () => {
   });
 };
 
+export const getConfusedCardsByNid = async (nid) => {
+  return await apiRequest(`/cards/${nid}/confused`, {
+    method: 'GET',
+  });
+};
+
 // Import History APIs
 export const getImportHistory = async () => {
   return await apiRequest('/imports', {
