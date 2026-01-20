@@ -31,6 +31,7 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
   const [showHomophonesList, setShowHomophonesList] = useState(false);
   const [homophonesList, setHomophonesList] = useState([]);
   const [sameTermList, setSameTermList] = useState([]);
+  const [similarMeaningList, setSimilarMeaningList] = useState([]);
   const [loadingConfusedCards, setLoadingConfusedCards] = useState(false);
 
   useEffect(() => {
@@ -501,12 +502,20 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
     const currentCard = shuffledCards[currentCardIndex];
     const currentReading = (currentCard.reading || getField(currentCard, 2) || '').trim();
     const currentTerm = (getField(currentCard, 0) || '').trim();
+    const currentMeaning = (currentCard.meaning || getField(currentCard, 1) || '').trim();
     
-    if (!currentReading && !currentTerm) {
+    if (!currentReading && !currentTerm && !currentMeaning) {
       setHomophonesList([]);
       setSameTermList([]);
+      setSimilarMeaningList([]);
       return;
     }
+    
+    // Split current card's meanings by comma and trim
+    const currentMeanings = currentMeaning
+      .split(',')
+      .map(m => m.trim().toLowerCase())
+      .filter(m => m.length > 0);
     
     // Find all cards with the same reading (homophones)
     const homophones = allCardsForSearch.filter(card => {
@@ -520,8 +529,23 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
       return currentTerm && cardTerm === currentTerm && card.nid !== currentCard.nid;
     });
     
+    // Find all cards with at least one matching meaning
+    const similarMeaningCards = allCardsForSearch.filter(card => {
+      if (card.nid === currentCard.nid) return false;
+      
+      const cardMeaning = (card.meaning || getField(card, 1) || '').trim();
+      const cardMeanings = cardMeaning
+        .split(',')
+        .map(m => m.trim().toLowerCase())
+        .filter(m => m.length > 0);
+      
+      // Check if there's at least one matching meaning
+      return cardMeanings.some(cm => currentMeanings.includes(cm));
+    });
+    
     setHomophonesList(homophones);
     setSameTermList(sameTermCards);
+    setSimilarMeaningList(similarMeaningCards);
   };
 
   const handleToggleHomophonesList = () => {
@@ -755,6 +779,22 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
               <button className="close-button" onClick={() => setShowHomophonesList(false)}>✕</button>
             </div>
             
+            {/* Current Card Display */}
+            <div style={{
+              padding: '1rem',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '8px',
+              marginBottom: '1.5rem',
+              textAlign: 'center'
+            }}>
+              <h2 style={{margin: '0 0 0.5rem 0', fontSize: '2em'}}>
+                <span dangerouslySetInnerHTML={{ __html: getField(shuffledCards[currentCardIndex], 0) }} />
+              </h2>
+              <p style={{margin: 0, color: '#666', fontSize: '1.1em'}}>
+                {shuffledCards[currentCardIndex].reading || getField(shuffledCards[currentCardIndex], 2)}
+              </p>
+            </div>
+            
             {/* Homophones Section */}
             <div style={{marginBottom: '2rem'}}>
               <h4 style={{marginBottom: '1rem', color: '#333', borderBottom: '2px solid #007bff', paddingBottom: '0.5rem'}}>
@@ -797,7 +837,7 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
             
             {/* Same Term Section */}
             {sameTermList.length > 0 && (
-              <div>
+              <div style={{marginBottom: '2rem'}}>
                 <h4 style={{marginBottom: '1rem', color: '#333', borderBottom: '2px solid #28a745', paddingBottom: '0.5rem'}}>
                   Same Term: <span dangerouslySetInnerHTML={{ __html: getField(shuffledCards[currentCardIndex], 0) }} />
                 </h4>
@@ -814,6 +854,44 @@ function Study({ cards, mediaFiles, reading, listening, picture, gradedMode, onB
                     </thead>
                     <tbody>
                       {sameTermList.map((card) => (
+                        <tr key={card.nid}>
+                          <td>
+                            <span dangerouslySetInnerHTML={{ __html: getField(card, 0) }} />
+                          </td>
+                          <td>
+                            <span dangerouslySetInnerHTML={{ __html: card.reading || getField(card, 2) }} />
+                          </td>
+                          <td>
+                            <span dangerouslySetInnerHTML={{ __html: getField(card, 1) }} />
+                          </td>
+                          <td className="count-cell">#{card.originalIndex}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            
+            {/* Similar Meaning Section */}
+            {similarMeaningList.length > 0 && (
+              <div>
+                <h4 style={{marginBottom: '1rem', color: '#333', borderBottom: '2px solid #ffc107', paddingBottom: '0.5rem'}}>
+                  Similar Meaning: <span dangerouslySetInnerHTML={{ __html: getField(shuffledCards[currentCardIndex], 1) }} />
+                </h4>
+                
+                <div className="confused-table-wrapper">
+                  <table className="confused-table">
+                    <thead>
+                      <tr>
+                        <th>Word</th>
+                        <th>Reading</th>
+                        <th>Meaning</th>
+                        <th>Index</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {similarMeaningList.map((card) => (
                         <tr key={card.nid}>
                           <td>
                             <span dangerouslySetInnerHTML={{ __html: getField(card, 0) }} />
